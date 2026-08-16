@@ -49,7 +49,7 @@ export const AccountIntelligenceView: React.FC<AccountIntelligenceViewProps> = (
           </h1>
         </div>
         <p className="text-xs sm:text-sm text-zinc-500 mt-0.5">
-          Multi-stakeholder influence mapping, buying signal detection, and autonomous Next Best Actions grounded in HydraDB.
+          Multi-stakeholder influence mapping, buying signal detection, and autonomous Next Best Actions.
         </p>
       </div>
 

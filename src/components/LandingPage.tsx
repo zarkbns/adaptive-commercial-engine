@@ -201,7 +201,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLaunchApp }) => {
           </h1>
 
           <p className="text-sm sm:text-base text-zinc-500 max-w-2xl mx-auto leading-relaxed">
-            Unify buying centers, enforce margin guardrails, and execute deal-winning negotiation strategies with grounded HydraDB temporal memory.
+            Unify buying centers, enforce margin guardrails, and execute deal-winning negotiation strategies with adaptive enterprise intelligence.
           </p>
         </div>
 
@@ -674,7 +674,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLaunchApp }) => {
               <span className="text-base font-bold text-zinc-900">A.C.E Platform</span>
             </div>
             <p className="text-xs text-zinc-500 max-w-md">
-              Enterprise Commercial Substrate powered by HydraDB temporal DAG indexing & Gemini multi-agent reasoning.
+              Enterprise Commercial Engine with multi-agent reasoning, dynamic yield protection, and buying center intelligence.
             </p>
           </div>
 
@@ -692,9 +692,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLaunchApp }) => {
         <div className="max-w-6xl mx-auto mt-12 pt-6 border-t border-zinc-100 flex flex-col sm:flex-row items-center justify-between text-[11px] text-zinc-400 gap-4">
           <div>© {new Date().getFullYear()} A.C.E Inc. All rights reserved.</div>
           <div className="flex items-center space-x-6">
-            <span>HydraDB v2.4</span>
+            <span>Enterprise Security</span>
             <span>SOC 2 Type II Certified</span>
-            <span>Sub-2ms Memory Tier</span>
+            <span>99.99% SLA</span>
           </div>
         </div>
       </footer>

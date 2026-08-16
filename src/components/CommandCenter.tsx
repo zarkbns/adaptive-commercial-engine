@@ -4,7 +4,7 @@ import {
   TradeUpIcon, 
   Dollar01Icon, 
   Shield01Icon, 
-  Database01Icon, 
+  Analytics01Icon, 
   FlashIcon, 
   Clock01Icon, 
   Alert01Icon, 
@@ -40,22 +40,16 @@ export const CommandCenter: React.FC<CommandCenterProps> = ({
     setSweepFeedback(null);
     try {
       const commitHash = await ACEAgentOrchestrator.getInstance().executeYieldOptimizationSweep();
-      setSweepFeedback(`Yield optimization executed. Temporal commit: ${commitHash.substring(0, 12)}`);
+      setSweepFeedback(`Yield optimization completed successfully.`);
       setTimeout(() => setSweepFeedback(null), 6000);
     } finally {
       setIsRunningSweep(false);
     }
   };
 
-  const handleReindexVectors = async () => {
-    const commitHash = await ACEAgentOrchestrator.getInstance().executeTemporalContextReindex();
-    setSweepFeedback(`HydraDB substrate re-indexed. Commit: ${commitHash.substring(0, 12)}`);
-    setTimeout(() => setSweepFeedback(null), 6000);
-  };
-
   const handleAuditSignals = async () => {
     await ACEAgentOrchestrator.getInstance().executeLeadSignalAudit();
-    setSweepFeedback('Buying signal audit completed. Gatekeeper strategies updated.');
+    setSweepFeedback('Commercial signals updated. Stakeholder strategies refreshed.');
     setTimeout(() => setSweepFeedback(null), 6000);
   };
 
@@ -115,18 +109,18 @@ export const CommandCenter: React.FC<CommandCenterProps> = ({
 
   return (
     <div className="space-y-6 pb-6">
-      {/* Top Banner with Autonomous Status */}
+      {/* Top Banner with Commercial Overview Status */}
       <div className="rounded-3xl border border-zinc-200/80 bg-zinc-50/80 p-5 shadow-xs">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center space-x-2">
               <span className="flex h-2 w-2 rounded-full bg-emerald-500" />
               <h1 className="text-xl font-bold tracking-tight text-zinc-900 sm:text-2xl">
-                Commercial Pulse & Engine Overview
+                Commercial Overview & Active Pipeline
               </h1>
             </div>
             <p className="text-xs sm:text-sm text-zinc-500">
-              Autonomous yield optimization, margin protection, and real-time context retrieval backed by <span className="font-semibold text-zinc-800">HydraDB Temporal Substrate</span>.
+              Autonomous yield optimization, margin protection, and real-time commercial alignment across all active enterprise accounts.
             </p>
           </div>
 
@@ -143,21 +137,12 @@ export const CommandCenter: React.FC<CommandCenterProps> = ({
             </button>
 
             <button
-              id="btn-reindex-vectors"
-              onClick={handleReindexVectors}
-              className="flex items-center space-x-1.5 rounded-full bg-white hover:bg-zinc-50 px-3.5 py-2 text-xs font-semibold text-zinc-700 border border-zinc-200/80 transition-all shadow-xs"
-            >
-              <HugeiconsIcon icon={Database01Icon} className="h-3.5 w-3.5 text-zinc-500" />
-              <span>Re-index Substrate</span>
-            </button>
-
-            <button
               id="btn-audit-signals"
               onClick={handleAuditSignals}
-              className="flex items-center space-x-1.5 rounded-full bg-white hover:bg-zinc-50 px-3.5 py-2 text-xs font-semibold text-zinc-700 border border-zinc-200/80 transition-all shadow-xs"
+              className="flex items-center space-x-1.5 rounded-full bg-white hover:bg-zinc-50 px-3.5 py-2 text-xs font-semibold text-zinc-700 border border-zinc-200/80 transition-all shadow-xs cursor-pointer"
             >
               <HugeiconsIcon icon={FlashIcon} className="h-3.5 w-3.5 text-zinc-500" />
-              <span>Audit Signals</span>
+              <span>Refresh Signals</span>
             </button>
           </div>
         </div>
@@ -204,24 +189,24 @@ export const CommandCenter: React.FC<CommandCenterProps> = ({
           <p className="mt-1 text-[11px] text-zinc-400">Give-Get trade guardrails active</p>
         </div>
 
-        {/* Metric 3: HydraDB Cache Hit Ratio */}
+        {/* Metric 3: Win Rate Potential */}
         <div 
           onClick={onOpenHydra}
           className="rounded-2xl border border-zinc-200/80 bg-white p-4 shadow-xs cursor-pointer hover:border-zinc-300 transition-all group"
         >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">HydraDB Cache</span>
+            <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Target Win Probability</span>
             <div className="rounded-xl bg-zinc-100 p-2 text-zinc-700 group-hover:scale-105 transition-transform">
-              <HugeiconsIcon icon={Database01Icon} className="h-4 w-4" />
+              <HugeiconsIcon icon={Analytics01Icon} className="h-4 w-4" />
             </div>
           </div>
           <div className="mt-2 flex items-baseline space-x-2">
-            <span className="text-2xl font-bold tracking-tight text-zinc-900">{metrics.cacheHitRatio}%</span>
-            <span className="text-xs font-medium text-zinc-500 font-mono">({metrics.avgLatencyMs}ms)</span>
+            <span className="text-2xl font-bold tracking-tight text-zinc-900">79.5%</span>
+            <span className="text-xs font-semibold text-emerald-600">+6.2%</span>
           </div>
           <p className="mt-1 text-[11px] text-zinc-400 flex items-center justify-between">
-            <span>{metrics.hotItemCount} L1 hot nodes</span>
-            <span className="text-zinc-600 group-hover:underline flex items-center font-medium">Inspect <HugeiconsIcon icon={ArrowRight01Icon} className="h-2.5 w-2.5 ml-0.5" /></span>
+            <span>Enterprise qualified</span>
+            <span className="text-zinc-600 group-hover:underline flex items-center font-medium">View Deals <HugeiconsIcon icon={ArrowRight01Icon} className="h-2.5 w-2.5 ml-0.5" /></span>
           </p>
         </div>
 

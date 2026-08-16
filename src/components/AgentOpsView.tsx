@@ -31,12 +31,12 @@ export const AgentOpsView: React.FC<AgentOpsViewProps> = ({ logs }) => {
       description: 'Coordinates sub-agent objectives, synthesizes executive deal summaries, and enforces commercial governance.',
     },
     {
-      name: 'Hydra Memory Agent',
-      role: 'Temporal Graph Synchronization',
-      status: '98.6% L1 Hit',
+      name: 'Context & Knowledge Engine',
+      role: 'Enterprise Memory & Synthesis',
+      status: 'Active',
       icon: Database01Icon,
       color: 'border-zinc-200/80 bg-white text-zinc-900',
-      description: 'Maintains Git-style DAG versioning, 64-dim semantic embeddings, and automated memory tier promotion.',
+      description: 'Provides contextual grounding, historical deal precedents, and customer profile synchronization.',
     },
     {
       name: 'Pricing & Yield Optimizer',
