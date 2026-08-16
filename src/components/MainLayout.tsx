@@ -41,12 +41,14 @@ interface MainLayoutProps {
   metrics: HydraTierMetrics;
   logs: AgentExecutionLog[];
   onRefreshMetrics: () => void;
+  onBackToLanding?: () => void;
 }
 
 export const MainLayout: React.FC<MainLayoutProps> = ({
   metrics,
   logs,
   onRefreshMetrics,
+  onBackToLanding,
 }) => {
   const [activeTab, setActiveTab] = useState<'chat' | 'command-center' | 'deal-room' | 'hydra-explorer' | 'accounts' | 'agent-ops'>('chat');
   const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
@@ -112,6 +114,16 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 
         {/* Right Circular Icon Utilities Matching Reference */}
         <div className="flex items-center space-x-2 sm:space-x-2.5">
+          {onBackToLanding && (
+            <button
+              type="button"
+              onClick={onBackToLanding}
+              className="text-xs font-semibold text-zinc-600 hover:text-zinc-900 bg-white border border-zinc-200/80 px-3.5 py-1.5 rounded-full transition-colors shadow-xs cursor-pointer mr-1 hidden sm:inline-flex items-center space-x-1.5"
+            >
+              <span>Landing Page</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={() => setActiveTab('hydra-explorer')}
