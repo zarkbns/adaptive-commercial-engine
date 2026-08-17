@@ -65,11 +65,11 @@ services:
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       APP_URL: ${APP_URL:-http://localhost:3000}
 
-      HYDRADB_URL: http://hydradb:8443
-      HYDRADB_ADMIN_URL: http://hydradb:9090
+      HYDRADB_URL: ${HYDRADB_URL:-http://hydradb:8443}
+      HYDRADB_ADMIN_URL: ${HYDRADB_ADMIN_URL:-http://hydradb:9090}
 
-      HYDRADB_GRAPH_ID: default
-      HYDRADB_NAMESPACE: default
+      HYDRADB_GRAPH_ID: ${HYDRADB_GRAPH_ID:-default}
+      HYDRADB_NAMESPACE: ${HYDRADB_NAMESPACE:-default}
       HYDRADB_API_KEY: ${HYDRADB_API_KEY}
     depends_on:
       hydradb:
