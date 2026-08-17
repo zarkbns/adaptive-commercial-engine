@@ -11,6 +11,7 @@ dotenv.config();
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
 const HYDRADB_URL = (process.env.HYDRADB_URL || 'http://hydradb:8443').replace(/\/+$/, '');
+const HYDRADB_ADMIN_URL = (process.env.HYDRADB_ADMIN_URL || 'http://hydradb:9090').replace(/\/+$/, '');
 const HYDRADB_API_KEY = process.env.HYDRADB_API_KEY || '';
 const HYDRADB_NAMESPACE = process.env.HYDRADB_NAMESPACE || 'default';
 const HYDRADB_GRAPH_ID = process.env.HYDRADB_GRAPH_ID || process.env.HYDRADB_DATABASE || 'default';
@@ -86,23 +87,32 @@ app.post('/v1/graphs/:graph_id/query', async (req, res) => {
   }
 });
 
-// 2. Health & Readiness Proxy to HydraDB OSS
+// 2. Health & Readiness Proxy to HydraDB OSS (port 9090 /readyz)
 app.get('/healthz', async (req, res) => {
   try {
-    const hydraRes = await fetch(`${HYDRADB_URL}/healthz`);
+    const hydraRes = await fetch(`${HYDRADB_ADMIN_URL}/readyz`);
     if (hydraRes.ok) {
-      const data = await hydraRes.json().catch(() => ({ status: 'ok' }));
-      return res.json({ status: 'ok', hydradb: data });
+      return res.json({
+        status: 'ok',
+        hydradb: 'ready',
+      });
     }
-    return res.status(hydraRes.status).json({ status: 'degraded', hydradb_status: hydraRes.status });
+    return res.status(503).json({
+      status: 'degraded',
+      hydradb_status: hydraRes.status,
+    });
   } catch (err: any) {
-    return res.status(503).json({ status: 'unavailable', error: err.message, targetUrl: `${HYDRADB_URL}/healthz` });
+    return res.status(503).json({
+      status: 'unavailable',
+      error: err.message,
+      targetUrl: `${HYDRADB_ADMIN_URL}/readyz`,
+    });
   }
 });
 
 app.get('/readyz', async (req, res) => {
   try {
-    const hydraRes = await fetch(`${HYDRADB_URL}/readyz`);
+    const hydraRes = await fetch(`${HYDRADB_ADMIN_URL}/readyz`);
     const text = await hydraRes.text();
     return res.status(hydraRes.status).send(text);
   } catch (err: any) {
@@ -116,10 +126,10 @@ app.get('/api/health', async (req, res) => {
   let hydraUpstreamDetails: any = null;
 
   try {
-    const checkRes = await fetch(`${HYDRADB_URL}/healthz`);
+    const checkRes = await fetch(`${HYDRADB_ADMIN_URL}/readyz`);
     if (checkRes.ok) {
       hydraUpstreamReachable = true;
-      hydraUpstreamDetails = await checkRes.json().catch(() => ({ status: 'ok' }));
+      hydraUpstreamDetails = { status: 'ready', code: checkRes.status };
     } else {
       hydraUpstreamDetails = { status: checkRes.status, text: await checkRes.text().catch(() => '') };
     }
@@ -132,7 +142,8 @@ app.get('/api/health', async (req, res) => {
     service: 'A.C.E - Adaptive Commercial Engine Server',
     hydraStatus: hydraUpstreamReachable ? 'HydraDB OSS Container Connected' : 'HydraDB OSS Container Disconnected',
     hydraConfig: {
-      targetUrl: HYDRADB_URL,
+      queryUrl: HYDRADB_URL,
+      adminUrl: HYDRADB_ADMIN_URL,
       graphId: HYDRADB_GRAPH_ID,
       namespace: HYDRADB_NAMESPACE,
       hasApiKey: !!HYDRADB_API_KEY,
@@ -141,8 +152,7 @@ app.get('/api/health', async (req, res) => {
     },
     verifiedEndpoints: [
       `POST ${HYDRADB_URL}/v1/graphs/:graph_id/query`,
-      `GET ${HYDRADB_URL}/healthz`,
-      `GET ${HYDRADB_URL}/readyz`,
+      `GET ${HYDRADB_ADMIN_URL}/readyz`,
     ],
     timestamp: new Date().toISOString(),
   });

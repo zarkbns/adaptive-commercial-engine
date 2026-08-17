@@ -167,7 +167,8 @@ export function classifyCopilotIntent(prompt: string): IntentClassificationResul
   const match = pLower.match(accountPattern);
   if (match && match[1]) {
     const candidate = match[1].toLowerCase();
-    if (!['the', 'our', 'a', 'this', 'that', 'any', 'all', 'new'].includes(candidate)) {
+    const stopWords = ['the', 'our', 'a', 'an', 'this', 'that', 'any', 'all', 'new', 'is', 'are', 'was', 'were', 'has', 'have', 'had', 'wants', 'needs', 'asking', 'says', 'will', 'to', 'in', 'on', 'for', 'about'];
+    if (!stopWords.includes(candidate)) {
       if (!extractedEntities.includes(candidate)) {
         extractedEntities.push(candidate);
       }
