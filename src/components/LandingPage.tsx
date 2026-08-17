@@ -9,57 +9,64 @@ import {
   Layers01Icon,
   Analytics01Icon,
   UserGroup02Icon,
-  ComputerTerminalIcon,
   CheckmarkCircle02Icon,
   ArrowRight01Icon,
-  Share01Icon,
-  Shield01Icon,
-  Database01Icon,
   Link01Icon,
   SparklesIcon,
+  Briefcase01Icon,
+  Calendar01Icon,
+  Location01Icon,
+  Logout01Icon,
 } from '@hugeicons/core-free-icons';
+import { UserSession } from '../services/authService';
 
 interface LandingPageProps {
   onLaunchApp: () => void;
+  session?: UserSession;
+  onSignOut?: () => void;
 }
 
-export const LandingPage: React.FC<LandingPageProps> = ({ onLaunchApp }) => {
-  const [activeTab, setActiveTab] = useState<'client-portal' | 'kpi-tracking' | 'workflow-automation' | 'team-management'>('workflow-automation');
+export const LandingPage: React.FC<LandingPageProps> = ({
+  onLaunchApp,
+  session = { isAuthenticated: false },
+  onSignOut,
+}) => {
+  const [activeTab, setActiveTab] = useState<'stakeholders' | 'pricing' | 'agents' | 'team'>('agents');
   const [inputValue, setInputValue] = useState('');
   const [activeIntegration, setActiveIntegration] = useState<string | null>(null);
 
   const tabs = [
     {
-      id: 'client-portal' as const,
-      label: 'Client portal',
-      icon: ComputerTerminalIcon,
-      title: 'Real-Time Buying Center Intelligence',
-      description: 'Map economic buyers, champions, and gatekeepers automatically with sentiment tracking and live signal ingestion.',
-      highlights: ['Automated buying committee mapping', 'Dynamic stakeholder sentiment scoring', 'Interactive Deal Room portal access'],
-    },
-    {
-      id: 'kpi-tracking' as const,
-      label: 'KPI tracking',
-      icon: Analytics01Icon,
-      title: 'Margin Protection & Elasticity Modeling',
-      description: 'Continuous yield optimization sweeps that protect ARR floors while optimizing Give-Get commercial trade terms.',
-      highlights: ['Dynamic gross margin guardrails', 'Algorithmic payback & discount floors', 'Real-time concession velocity metrics'],
-    },
-    {
-      id: 'workflow-automation' as const,
-      label: 'Workflow automation',
-      icon: Layers01Icon,
-      title: 'Autonomous Multi-Agent Orchestration',
-      description: 'A coordinated fleet of specialized AI agents continuously evaluating contract drafts, competitor tactics, and pipeline risks.',
-      highlights: ['Grounded execution over HydraDB memory', 'Sub-2ms temporal context retrieval', 'Automated trigger cycles & DAG commits'],
-    },
-    {
-      id: 'team-management' as const,
-      label: 'Team management',
+      id: 'stakeholders' as const,
+      label: 'Stakeholders',
       icon: UserGroup02Icon,
-      title: 'Cross-Functional Commercial Alignment',
-      description: 'Keep Sales, Legal, RevOps, and Executive leadership perfectly synchronized on critical deal milestones and approvals.',
-      highlights: ['Role-based commercial governance', 'Single pane for concession approvals', 'Instant sync across Slack, Calendar & Drive'],
+      title: 'Stakeholder and decision-maker tracking',
+      description: 'Map key decision-makers and influencers automatically, with sentiment tracking from emails and meetings.',
+      highlights: ['Map buying committees automatically', 'Track sentiment across calls and emails', 'See executive engagement in real time'],
+    },
+    {
+      id: 'pricing' as const,
+      label: 'Pricing Rules',
+      icon: Analytics01Icon,
+      title: 'Protect margins on every deal',
+      description: 'Keep margins above target with automated pricing rules and smart concession recommendations.',
+      highlights: ['Automated 78%+ gross margin floor', 'Smart trade-off recommendations', 'Real-time concession tracking'],
+    },
+    {
+      id: 'agents' as const,
+      label: 'Smart Agents',
+      icon: Layers01Icon,
+      title: 'Automated deal research and risk detection',
+      description: 'Specialized assistants continuously review contract drafts, identify competitor moves, and flag risks.',
+      highlights: ['Instant answers grounded in company data', 'Fast context lookup across deals', 'Actionable recommendations ready to send'],
+    },
+    {
+      id: 'team' as const,
+      label: 'Team Sync',
+      icon: Briefcase01Icon,
+      title: 'Keep sales, legal, and leadership aligned',
+      description: 'A single place for approval workflows, pricing terms, and next steps across teams.',
+      highlights: ['Clear approval workflows', 'Shared deal timeline and milestones', 'Instant sync with Slack, Calendar, and Drive'],
     },
   ];
 
@@ -69,76 +76,52 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLaunchApp }) => {
     {
       id: 'figma',
       name: 'Figma',
-      badge: 'Red dot',
-      status: 'Design Specs Synced',
-      details: 'Product tiering & feature matrix integration',
-      x: '14%',
-      y: '32%',
+      status: 'Connected',
+      details: 'Product tiering and feature specs',
     },
     {
       id: 'calendar',
       name: 'Google Calendar',
       iconText: '31',
-      badge: 'Red tab',
-      status: '12 Deal Meetings',
-      details: 'Buying committee attendance & temporal scheduling',
-      x: '28%',
-      y: '16%',
+      status: 'Connected',
+      details: 'Deal meetings and attendee schedules',
     },
     {
       id: 'slack',
       name: 'Slack',
-      badge: 'Red tab',
-      status: 'Live Signals',
-      details: 'Real-time pricing approvals & concession chatter',
-      x: '56%',
-      y: '18%',
+      status: 'Connected',
+      details: 'Live deal chatter and pricing requests',
     },
     {
       id: 'meet',
       name: 'Google Meet',
-      badge: null,
-      status: 'Call Recording Active',
-      details: 'Autonomous transcript summarization & sentiment feed',
-      x: '78%',
-      y: '22%',
+      status: 'Connected',
+      details: 'Call notes and action items',
     },
     {
       id: 'miro',
       name: 'Miro',
-      badge: 'Red dot + Sync',
-      status: 'Org Mapping Live',
-      details: 'Visual stakeholder influence matrix graph',
-      x: '90%',
-      y: '48%',
+      status: 'Connected',
+      details: 'Org chart and stakeholder map',
     },
     {
       id: 'drive',
       name: 'Google Drive',
-      badge: 'Link Pill',
-      status: 'Contracts Synced',
-      details: 'Master Service Agreements & Redline extraction',
-      x: '26%',
-      y: '72%',
+      status: 'Connected',
+      details: 'Contracts, MSAs, and redlines',
     },
     {
       id: 'messages',
       name: 'Messages',
-      badge: 'Red tab',
-      status: 'Buyer SMS Feed',
-      details: 'Direct executive buyer communication stream',
-      x: '54%',
-      y: '68%',
+      status: 'Connected',
+      details: 'Direct customer communication',
     },
     {
       id: 'notion',
       name: 'Notion',
       iconText: 'N',
-      badge: 'Bell Pill',
-      status: 'Playbooks Active',
-      details: 'Battlecard knowledge base & pricing policy sync',
-      x: '78%',
-      y: '76%',
+      status: 'Connected',
+      details: 'Pricing guides and playbooks',
     },
   ];
 
@@ -147,135 +130,89 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLaunchApp }) => {
       {/* 1. TOP BAR NAVIGATION */}
       <header className="sticky top-0 z-40 w-full bg-[#f8f9fa]/90 backdrop-blur-md border-b border-zinc-200/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          {/* Brand */}
-          <div className="flex items-center space-x-3">
-            <div className="w-9 h-9 rounded-2xl bg-zinc-900 text-white flex items-center justify-center shadow-xs">
-              <HugeiconsIcon icon={FlashIcon} className="h-4.5 w-4.5 fill-current" />
+          {/* Brand - Clean single brand mark without subtitle badge */}
+          <div className="flex items-center space-x-2.5">
+            <div className="w-8 h-8 rounded-xl bg-zinc-900 text-white flex items-center justify-center shadow-xs">
+              <HugeiconsIcon icon={FlashIcon} className="h-4 w-4 fill-current" />
             </div>
-            <div className="flex items-center space-x-2">
-              <span className="text-base font-bold tracking-tight text-zinc-900">A.C.E</span>
-              <span className="hidden sm:inline-block text-[11px] font-medium px-2 py-0.5 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-600">
-                Commercial Engine
-              </span>
-            </div>
+            <span className="text-base font-bold tracking-tight text-zinc-900">A.C.E</span>
           </div>
-
-          {/* Navigation Links */}
-          <nav className="hidden md:flex items-center space-x-6 text-xs font-medium text-zinc-600">
-            <a href="#hero-dock" className="hover:text-zinc-900 transition-colors">Overview</a>
-            <a href="#high-performance" className="hover:text-zinc-900 transition-colors">High Performance</a>
-            <a href="#integrations" className="hover:text-zinc-900 transition-colors">Integrations</a>
-            <a href="#ecosystem" className="hover:text-zinc-900 transition-colors">Substrate</a>
-          </nav>
 
           {/* Action CTAs */}
           <div className="flex items-center space-x-3">
-            <button
-              onClick={onLaunchApp}
-              className="text-xs font-semibold text-zinc-700 hover:text-zinc-900 px-3 py-1.5 rounded-full transition-colors cursor-pointer hidden sm:block"
-            >
-              Sign In
-            </button>
-            <button
-              onClick={onLaunchApp}
-              id="btn-launch-app-top"
-              className="flex items-center space-x-1.5 rounded-full bg-zinc-900 hover:bg-black px-4 py-2 text-xs font-semibold text-white shadow-xs transition-all cursor-pointer active:scale-95"
-            >
-              <span>Launch App</span>
-              <HugeiconsIcon icon={ArrowRight01Icon} className="h-3.5 w-3.5" />
-            </button>
+            {session.isAuthenticated ? (
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={onSignOut}
+                  className="text-xs font-semibold text-zinc-600 hover:text-zinc-900 px-3 py-1.5 rounded-full transition-colors cursor-pointer flex items-center gap-1.5"
+                >
+                  <HugeiconsIcon icon={Logout01Icon} className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Sign out</span>
+                </button>
+                <button
+                  onClick={onLaunchApp}
+                  id="btn-launch-app-top"
+                  className="flex items-center space-x-1.5 rounded-full bg-zinc-900 hover:bg-black px-4 py-2 text-xs font-semibold text-white shadow-xs transition-all cursor-pointer active:scale-95"
+                >
+                  <span>Dashboard</span>
+                  <HugeiconsIcon icon={ArrowRight01Icon} className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={onLaunchApp}
+                  className="text-xs font-semibold text-zinc-700 hover:text-zinc-900 px-3 py-1.5 rounded-full transition-colors cursor-pointer hidden sm:block"
+                >
+                  Sign in
+                </button>
+                <button
+                  onClick={onLaunchApp}
+                  id="btn-launch-app-top"
+                  className="flex items-center space-x-1.5 rounded-full bg-zinc-900 hover:bg-black px-4 py-2 text-xs font-semibold text-white shadow-xs transition-all cursor-pointer active:scale-95"
+                >
+                  <span>Get started</span>
+                  <HugeiconsIcon icon={ArrowRight01Icon} className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </header>
 
-      {/* 2. HERO SECTION WITH FANNED CARD DOCK (REFERENCE IMAGE 1) */}
-      <section id="hero-dock" className="relative pt-12 sm:pt-20 pb-20 sm:pb-32 px-4 sm:px-6 lg:px-8 overflow-hidden">
-        <div className="max-w-5xl mx-auto text-center space-y-4 mb-16">
-          <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-white border border-zinc-200/80 text-[11px] font-medium text-zinc-700 shadow-2xs">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Autonomous Commercial Intelligence Platform</span>
-          </div>
-
+      {/* 2. HERO SECTION */}
+      <section id="overview" className="relative pt-12 sm:pt-20 pb-16 sm:pb-24 px-4 sm:px-6 lg:px-8 overflow-hidden">
+        <div className="max-w-5xl mx-auto text-center space-y-4 mb-12">
           <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-zinc-900 max-w-3xl mx-auto leading-[1.15]">
-            Adaptive Commercial Execution for Enterprise
+            Turn connected business data into customer intelligence
           </h1>
 
           <p className="text-sm sm:text-base text-zinc-500 max-w-2xl mx-auto leading-relaxed">
-            Unify buying centers, enforce margin guardrails, and execute deal-winning negotiation strategies with adaptive enterprise intelligence.
+            A.C.E connects customer activity, deal history, emails, and meetings to help your team understand accounts, protect margins, and close deals faster.
           </p>
+
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-3">
+            <button
+              onClick={onLaunchApp}
+              id="btn-hero-enter-ace"
+              className="flex items-center space-x-2 rounded-full bg-zinc-900 hover:bg-black px-6 py-3 text-xs sm:text-sm font-bold text-white shadow-xs transition-all cursor-pointer active:scale-95"
+            >
+              <span>{session.isAuthenticated ? 'Open dashboard' : 'Get started'}</span>
+              <HugeiconsIcon icon={ArrowRight01Icon} className="h-4 w-4" />
+            </button>
+            <a
+              href="#product-preview"
+              className="px-5 py-3 rounded-full bg-white border border-zinc-200/90 text-xs sm:text-sm font-semibold text-zinc-700 hover:text-zinc-950 hover:bg-zinc-50 transition-colors shadow-2xs"
+            >
+              See preview
+            </a>
+          </div>
         </div>
 
-        {/* HERO VISUAL: 5 FANNED CARDS + PILL COMMAND DOCK (IMAGE 1 REPRODUCTION) */}
-        <div className="max-w-4xl mx-auto relative pt-12">
-          {/* Fanned Layered Cards Rising Behind the Bar */}
-          <div className="relative h-44 sm:h-52 w-full flex items-end justify-center mb-[-28px] z-10 pointer-events-none select-none">
-            {/* Card 1 (Far Left, Tilted -10deg) */}
-            <div className="w-36 sm:w-44 h-40 sm:h-48 rounded-2xl sm:rounded-3xl bg-white border border-zinc-200/80 shadow-md transform -rotate-12 translate-y-3 -mr-6 sm:-mr-8 p-4 flex flex-col justify-between opacity-95 transition-transform hover:-translate-y-2">
-              <div className="flex items-center space-x-1 opacity-20">
-                <div className="w-3.5 h-3.5 border-2 border-zinc-900 rounded-sm" />
-                <div className="w-3.5 h-3.5 rounded-full border-2 border-zinc-900" />
-                <div className="w-3.5 h-3.5 rotate-45 border-2 border-zinc-900" />
-              </div>
-              <div className="space-y-1.5 opacity-30">
-                <div className="h-2 bg-zinc-400 rounded-full w-3/4" />
-                <div className="h-2 bg-zinc-300 rounded-full w-1/2" />
-              </div>
-            </div>
-
-            {/* Card 2 (Left Center, Tilted -5deg with Amber/Yellow Tab) */}
-            <div className="w-36 sm:w-44 h-44 sm:h-52 rounded-2xl sm:rounded-3xl bg-white border border-zinc-200/80 shadow-lg transform -rotate-6 translate-y-1 -mr-4 sm:-mr-6 overflow-hidden flex flex-col opacity-98 transition-transform hover:-translate-y-2">
-              {/* Yellow / Amber Header Tab */}
-              <div className="h-10 sm:h-12 bg-[#fbbf24] w-full rounded-t-2xl sm:rounded-t-3xl" />
-              <div className="p-3 sm:p-4 space-y-2 flex-1">
-                <div className="h-1.5 bg-zinc-200 rounded-full w-full" />
-                <div className="h-1.5 bg-zinc-200 rounded-full w-full" />
-                <div className="h-1.5 bg-zinc-200 rounded-full w-4/5" />
-                <div className="h-1.5 bg-zinc-200 rounded-full w-3/5" />
-              </div>
-            </div>
-
-            {/* Card 3 (Center, Coral / Red Tab) */}
-            <div className="w-38 sm:w-48 h-48 sm:h-56 rounded-2xl sm:rounded-3xl bg-white border border-zinc-200/80 shadow-xl transform rotate-0 z-20 overflow-hidden flex flex-col transition-transform hover:-translate-y-2">
-              {/* Coral / Red Header Tab */}
-              <div className="h-9 sm:h-11 bg-[#f43f5e] w-full rounded-t-2xl sm:rounded-t-3xl" />
-              <div className="p-3 sm:p-4 space-y-2.5 flex-1 bg-white">
-                <div className="h-2 bg-zinc-200 rounded-full w-3/4" />
-                <div className="grid grid-cols-3 gap-1.5 pt-1">
-                  <div className="h-5 bg-zinc-100 rounded-md" />
-                  <div className="h-5 bg-zinc-100 rounded-md" />
-                  <div className="h-5 bg-zinc-100 rounded-md" />
-                </div>
-              </div>
-            </div>
-
-            {/* Card 4 (Right Center, Tilted +5deg with Recording Mic Visual) */}
-            <div className="w-36 sm:w-44 h-44 sm:h-52 rounded-2xl sm:rounded-3xl bg-white border border-zinc-200/80 shadow-lg transform rotate-6 translate-y-1 -ml-4 sm:-ml-6 flex flex-col items-center justify-center p-4 opacity-98 transition-transform hover:-translate-y-2">
-              {/* Concentric Microphone / Recording Target */}
-              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-zinc-100/80 flex items-center justify-center shadow-inner relative">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white shadow-xs flex items-center justify-center">
-                  <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-[#ef4444] shadow-xs" />
-                </div>
-              </div>
-            </div>
-
-            {/* Card 5 (Far Right, Tilted +10deg with Blue Dogear Corner) */}
-            <div className="w-36 sm:w-44 h-40 sm:h-48 rounded-2xl sm:rounded-3xl bg-white border border-zinc-200/80 shadow-md transform rotate-12 translate-y-3 -ml-6 sm:-ml-8 p-4 flex flex-col justify-between relative overflow-hidden opacity-95 transition-transform hover:-translate-y-2">
-              {/* Blue Folded Dogear Corner */}
-              <div className="absolute top-0 right-0 w-8 h-8 sm:w-10 sm:h-10">
-                <div className="w-0 h-0 border-t-[32px] sm:border-t-[40px] border-t-[#3b82f6] border-l-[32px] sm:border-l-[40px] border-l-transparent rounded-bl-lg" />
-              </div>
-              <div className="pt-2 space-y-2 opacity-50">
-                <div className="h-3 bg-zinc-200 rounded-md w-1/3" />
-                <div className="h-3 bg-zinc-200 rounded-md w-2/3" />
-                <div className="h-3 bg-zinc-200 rounded-md w-1/2" />
-              </div>
-              <div className="h-2 bg-zinc-200 rounded-full w-3/4 opacity-40" />
-            </div>
-          </div>
-
-          {/* MAIN PILL COMMAND BAR DOCK (IMAGE 1 REPRODUCTION) */}
+        {/* HERO PILL COMMAND BAR DOCK */}
+        <div className="max-w-4xl mx-auto relative pt-4">
           <div className="relative z-30 flex items-center justify-center gap-2 sm:gap-3 px-2">
-            {/* Left Pill Selector [Icon + Dropdown Chevron] */}
+            {/* Left Pill Selector */}
             <div className="h-12 sm:h-14 px-3 sm:px-4 rounded-full bg-[#e9ecef]/80 sm:bg-white sm:border sm:border-zinc-200/80 shadow-xs flex items-center space-x-2 text-zinc-600 hover:text-zinc-900 cursor-pointer transition-colors shrink-0">
               <div className="flex items-center space-x-1">
                 <div className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
@@ -293,7 +230,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLaunchApp }) => {
                 type="text"
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
-                placeholder="Ask A.C.E or generate strategy..."
+                placeholder="Ask about an account, deal terms, or pricing strategy..."
                 className="w-full bg-transparent text-xs sm:text-sm text-zinc-900 placeholder-zinc-400 focus:outline-none pr-3"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
@@ -306,7 +243,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLaunchApp }) => {
               <div className="flex items-center space-x-2.5 sm:space-x-3 text-zinc-400 shrink-0">
                 <button
                   type="button"
-                  title="Concession parameters"
+                  title="Pricing rules"
                   onClick={onLaunchApp}
                   className="hover:text-zinc-800 transition-colors cursor-pointer"
                 >
@@ -314,7 +251,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLaunchApp }) => {
                 </button>
                 <button
                   type="button"
-                  title="Add context document"
+                  title="Attach document"
                   onClick={onLaunchApp}
                   className="hover:text-zinc-800 transition-colors cursor-pointer"
                 >
@@ -322,7 +259,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLaunchApp }) => {
                 </button>
                 <button
                   type="button"
-                  title="Voice dictation"
+                  title="Voice input"
                   onClick={onLaunchApp}
                   className="hover:text-zinc-800 transition-colors cursor-pointer"
                 >
@@ -331,31 +268,154 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLaunchApp }) => {
               </div>
             </div>
 
-            {/* Far Right Submit Button (Circular Up Arrow) */}
+            {/* Far Right Submit Button */}
             <button
               onClick={onLaunchApp}
-              title="Execute in Copilot"
-              className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-white border border-zinc-200/90 shadow-md flex items-center justify-center text-zinc-700 hover:text-zinc-950 hover:bg-zinc-50 active:scale-95 transition-all cursor-pointer shrink-0"
+              title="Execute"
+              className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-black text-white shadow-md flex items-center justify-center hover:bg-zinc-800 active:scale-95 transition-all cursor-pointer shrink-0"
             >
-              <HugeiconsIcon icon={ArrowUp01Icon} className="h-5 w-5 stroke-2" />
+              <HugeiconsIcon icon={ArrowUp01Icon} className="h-5 w-5 stroke-2 text-white" />
             </button>
           </div>
         </div>
       </section>
 
-      {/* 3. "BUILT FOR HIGH PERFORMANCE" SECTION (REFERENCE IMAGE 2) */}
-      <section id="high-performance" className="py-20 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto">
-        {/* Header (Image 2 Exact Framing) */}
+      {/* 3. VISUAL PRODUCT PREVIEW SECTION (A.C.E 3-COLUMN INTERFACE PREVIEW) */}
+      <section id="product-preview" className="py-16 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto">
         <div className="text-center space-y-3 mb-10">
-          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900">
-            Built for high performance
+          <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-zinc-900">
+            A clean workspace built for deal execution
           </h2>
-          <p className="text-sm sm:text-base text-zinc-500 max-w-2xl mx-auto leading-relaxed">
-            ACE gives your team everything it needs to stay aligned, track performance, and scale with confidence — all in one place.
+          <p className="text-sm text-zinc-500 max-w-2xl mx-auto leading-relaxed">
+            Everything your team needs to understand accounts, run deals, track timelines, and protect margins.
           </p>
         </div>
 
-        {/* Segmented Control Pill Container (Image 2 Reproduction) */}
+        {/* Scaled Preview Frame */}
+        <div className="rounded-[32px] border border-zinc-200/80 bg-[#f4f5f8] p-4 sm:p-6 shadow-xl relative overflow-hidden group">
+          {/* Mock Top Controls */}
+          <div className="flex items-center justify-between mb-4 pb-3 border-b border-zinc-200/60">
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 rounded-xl bg-zinc-900 text-white flex items-center justify-center shadow-xs">
+                <HugeiconsIcon icon={FlashIcon} className="h-4 w-4 fill-current text-white" />
+              </div>
+              <div className="h-8 px-4 rounded-full bg-white border border-zinc-200 text-xs text-zinc-500 flex items-center gap-2">
+                <HugeiconsIcon icon={SlidersHorizontalIcon} className="h-3.5 w-3.5 text-zinc-400" />
+                <span>Search accounts, deals, or signals...</span>
+              </div>
+            </div>
+            <div className="flex items-center space-x-2">
+              <div className="w-8 h-8 rounded-full bg-white border border-zinc-200 flex items-center justify-center text-zinc-600">
+                <HugeiconsIcon icon={Location01Icon} className="h-3.5 w-3.5" />
+              </div>
+              <div className="w-8 h-8 rounded-full bg-white border border-zinc-200 flex items-center justify-center text-zinc-600">
+                <HugeiconsIcon icon={Calendar01Icon} className="h-3.5 w-3.5" />
+              </div>
+              <button
+                onClick={onLaunchApp}
+                className="h-8 px-3 rounded-full bg-black text-white text-[11px] font-semibold flex items-center gap-1.5 cursor-pointer hover:bg-zinc-800"
+              >
+                <HugeiconsIcon icon={SparklesIcon} className="h-3 w-3" />
+                <span>Copilot</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Mock 3-Column Preview Grid */}
+          <div className="grid grid-cols-12 gap-3 sm:gap-4 items-stretch">
+            {/* Left Nav & Feed Preview */}
+            <div className="col-span-12 sm:col-span-4 lg:col-span-3 space-y-3">
+              <div className="bg-white rounded-2xl p-3.5 border border-zinc-200 shadow-xs space-y-2">
+                <div className="flex items-center space-x-2.5">
+                  <div className="w-7 h-7 rounded-full bg-zinc-900 text-white flex items-center justify-center text-[10px] font-bold">
+                    A
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-bold text-zinc-900 truncate">Enterprise Client Alpha</div>
+                    <div className="text-[10px] text-zinc-500 truncate">$480k Target ARR</div>
+                  </div>
+                </div>
+                <div className="h-16 rounded-xl bg-zinc-100 border border-zinc-200/70 flex items-center justify-center text-[10px] font-semibold text-zinc-500">
+                  94% Buying Intent
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl p-3 border border-zinc-200 shadow-xs space-y-1">
+                <div className="text-xs font-bold text-zinc-900">Buying Signal</div>
+                <div className="text-[10px] text-zinc-500">18 Platform roles posted</div>
+              </div>
+            </div>
+
+            {/* Center Workspace Preview */}
+            <div className="col-span-12 sm:col-span-8 lg:col-span-6 bg-white rounded-2xl p-4 border border-zinc-200 shadow-xs flex flex-col justify-between min-h-[220px]">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-zinc-100">
+                  <span className="text-xs font-bold text-zinc-900">Deal Workspace & Pricing Modeler</span>
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    Pricing Protected
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="p-2.5 rounded-xl bg-zinc-50 border border-zinc-200/80">
+                    <div className="text-[9px] uppercase font-semibold text-zinc-400">Margin Target</div>
+                    <div className="text-sm font-bold text-zinc-900">82.5%</div>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-zinc-50 border border-zinc-200/80">
+                    <div className="text-[9px] uppercase font-semibold text-zinc-400">Payment Term</div>
+                    <div className="text-sm font-bold text-zinc-900">36-Month Prepay</div>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-3 p-2 rounded-xl bg-[#f4f5f8] border border-zinc-200 text-[11px] text-zinc-600 flex items-center justify-between">
+                <span>Ask about deal terms or concessions...</span>
+                <div className="w-5 h-5 rounded-full bg-black text-white flex items-center justify-center text-[10px]">
+                  ↑
+                </div>
+              </div>
+            </div>
+
+            {/* Right Sidebar Preview */}
+            <div className="hidden lg:block col-span-3 space-y-3">
+              <div className="bg-white rounded-2xl p-3.5 border border-zinc-200 shadow-xs space-y-2">
+                <div className="text-xs font-bold text-zinc-900 flex items-center justify-between">
+                  <span>Pricing Rules</span>
+                  <span className="text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">Active</span>
+                </div>
+                <div className="text-[11px] text-zinc-600">78% Margin Floor Active</div>
+                <div className="text-[11px] text-zinc-600">Give-Get Policy Enforced</div>
+              </div>
+              <div className="bg-white rounded-2xl p-3.5 border border-zinc-200 shadow-xs space-y-1">
+                <div className="text-xs font-bold text-zinc-900">Next Milestone</div>
+                <div className="text-[10px] text-zinc-500">Pricing review in 24h</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Interactive Overlay on Hover */}
+          <div className="mt-4 text-center">
+            <button
+              onClick={onLaunchApp}
+              className="inline-flex items-center space-x-2 text-xs font-bold text-zinc-900 hover:text-black transition-colors cursor-pointer"
+            >
+              <span>Open live workspace</span>
+              <HugeiconsIcon icon={ArrowRight01Icon} className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* 4. CAPABILITIES SECTION */}
+      <section id="capabilities" className="py-20 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto">
+        <div className="text-center space-y-3 mb-10">
+          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900">
+            Built for high-performing sales teams
+          </h2>
+          <p className="text-sm sm:text-base text-zinc-500 max-w-2xl mx-auto leading-relaxed">
+            Stay aligned, track stakeholder sentiment, protect margins, and make fast commercial decisions.
+          </p>
+        </div>
+
+        {/* Segmented Control Pill Container */}
         <div className="flex justify-center mb-10">
           <div className="inline-flex flex-wrap items-center justify-center rounded-full bg-[#f2eee7] p-1.5 border border-[#e5dfd5] shadow-2xs gap-1">
             {tabs.map((tab) => {
@@ -378,49 +438,26 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLaunchApp }) => {
           </div>
         </div>
 
-        {/* Feature Display Container (Image 2 Reproduction) */}
+        {/* Feature Display Container */}
         <div className="rounded-3xl border border-zinc-200/80 bg-white/70 backdrop-blur-xs p-6 sm:p-10 lg:p-12 shadow-xs">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-            {/* Left Column: Tilted Minimal UI Card Preview Inside Soft Beige Canvas */}
-            <div className="lg:col-span-6 rounded-3xl bg-[#f5f1ea] p-6 sm:p-10 flex items-center justify-center min-h-[360px] sm:min-h-[420px] relative overflow-hidden">
-              {/* Background Dashed Wireframe Layer */}
+            {/* Left Column: Minimal UI Card Preview */}
+            <div className="lg:col-span-6 rounded-3xl bg-[#f5f1ea] p-6 sm:p-10 flex items-center justify-center min-h-[340px] relative overflow-hidden">
               <div className="absolute w-[80%] h-[80%] rounded-3xl border-2 border-dashed border-[#dcd6cb] transform -rotate-3" />
-
-              {/* Foreground Tilted Crisp White UI Card */}
               <div className="relative z-10 w-[88%] bg-white rounded-2xl p-5 shadow-lg border border-zinc-200/80 transform rotate-2 space-y-4">
-                {/* Top header bar */}
                 <div className="h-5 w-24 bg-[#e8e4dc] rounded-full" />
-
-                {/* Main preview box */}
-                <div className="h-32 sm:h-36 w-full bg-[#e8e4dc] rounded-xl flex items-center justify-center">
-                  <div className="flex items-center space-x-2 text-zinc-400">
-                    <HugeiconsIcon icon={currentTabContent.icon} className="h-6 w-6 text-zinc-500" />
-                  </div>
+                <div className="h-28 sm:h-32 w-full bg-[#e8e4dc] rounded-xl flex items-center justify-center">
+                  <HugeiconsIcon icon={currentTabContent.icon} className="h-8 w-8 text-zinc-500" />
                 </div>
-
-                {/* Skeleton preview lines */}
                 <div className="space-y-2 pt-1">
                   <div className="h-2.5 bg-[#f0ece5] rounded-full w-4/5" />
                   <div className="h-2.5 bg-[#f0ece5] rounded-full w-3/5" />
                 </div>
-
-                {/* Bottom Action Row: 3 Avatar Dots + Button Pill */}
-                <div className="flex items-center justify-between pt-2">
-                  <div className="flex space-x-1.5">
-                    <div className="w-5 h-5 rounded-full bg-[#e8e4dc]" />
-                    <div className="w-5 h-5 rounded-full bg-[#e8e4dc]" />
-                    <div className="w-5 h-5 rounded-full bg-[#e8e4dc]" />
-                  </div>
-                  <div className="h-5 w-16 bg-[#e8e4dc] rounded-full" />
-                </div>
               </div>
             </div>
 
-            {/* Right Column: Structured Editorial Content & Minimal Skeleton Accents */}
+            {/* Right Column: Structured Editorial Content */}
             <div className="lg:col-span-6 space-y-6">
-              {/* Sub-badge pill matching Image 2 */}
-              <div className="h-4 w-20 bg-[#e8e4dc] rounded-full" />
-
               <div className="space-y-3">
                 <h3 className="text-2xl sm:text-3xl font-bold text-zinc-900 tracking-tight">
                   {currentTabContent.title}
@@ -428,13 +465,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLaunchApp }) => {
                 <p className="text-sm text-zinc-500 leading-relaxed">
                   {currentTabContent.description}
                 </p>
-              </div>
-
-              {/* Minimal Line Skeleton Block (Image 2 right-side framing) */}
-              <div className="space-y-2 py-2">
-                <div className="h-3 bg-[#e8e4dc] rounded-full w-full" />
-                <div className="h-3 bg-[#f0ece5] rounded-full w-5/6" />
-                <div className="h-3 bg-[#f0ece5] rounded-full w-3/4" />
               </div>
 
               {/* Key Capabilities List */}
@@ -454,7 +484,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLaunchApp }) => {
                   onClick={onLaunchApp}
                   className="flex items-center space-x-2 rounded-full bg-zinc-900 hover:bg-black px-5 py-2.5 text-xs font-semibold text-white shadow-xs transition-all cursor-pointer"
                 >
-                  <span>Explore in Workspace</span>
+                  <span>Open in workspace</span>
                   <HugeiconsIcon icon={ArrowRight01Icon} className="h-3.5 w-3.5" />
                 </button>
               </div>
@@ -463,49 +493,38 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLaunchApp }) => {
         </div>
       </section>
 
-      {/* 4. CONNECTED INTEGRATION CONSTELLATION SECTION (REFERENCE IMAGE 3) */}
+      {/* 5. CONNECTED INTEGRATION CONSTELLATION SECTION */}
       <section id="integrations" className="py-20 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto">
         <div className="text-center space-y-3 mb-12">
-          <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-white border border-zinc-200/80 text-[11px] font-medium text-zinc-700 shadow-2xs">
-            <HugeiconsIcon icon={Link01Icon} className="h-3 w-3 text-zinc-700" />
-            <span>Zero-Friction Ingestion Loop</span>
-          </div>
           <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900">
-            Connected Enterprise Ecosystem
+            Connect your everyday tools
           </h2>
           <p className="text-sm sm:text-base text-zinc-500 max-w-2xl mx-auto leading-relaxed">
-            Continuous temporal synchronization across communication channels, meeting transcripts, document drives, and project trackers.
+            Sync calendars, emails, meetings, and documents directly into your workspace.
           </p>
         </div>
 
-        {/* Constellation Canvas (Exact Image 3 Reproduction) */}
-        <div className="relative rounded-3xl border border-zinc-200/80 bg-white p-8 sm:p-14 min-h-[460px] sm:min-h-[540px] shadow-xs overflow-hidden flex items-center justify-center">
-          {/* Subtle Background Mesh Grid */}
+        {/* Constellation Canvas */}
+        <div className="relative rounded-3xl border border-zinc-200/80 bg-white p-8 sm:p-14 min-h-[440px] sm:min-h-[500px] shadow-xs overflow-hidden flex items-center justify-center">
           <div className="absolute inset-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:24px_24px] opacity-40 pointer-events-none" />
 
-          {/* Curved Hairline Connecting Lines (SVG paths) */}
+          {/* Curved Hairline Connecting Lines */}
           <svg className="absolute inset-0 w-full h-full pointer-events-none stroke-zinc-400/80" fill="none" strokeWidth="1.2" strokeDasharray="3 3">
-            {/* Figma to Google Calendar */}
             <path d="M 160 180 Q 240 100 320 120" />
-            {/* Google Calendar to Slack */}
             <path d="M 360 120 Q 500 80 620 130" />
-            {/* Google Meet to Miro */}
             <path d="M 820 150 Q 880 230 940 280" />
-            {/* Messages to Notion */}
             <path d="M 580 390 Q 720 400 820 420" />
-            {/* Drive to Center */}
             <path d="M 300 380 Q 420 320 540 370" />
           </svg>
 
-          {/* Floating Application Tiles (Image 3 exact placement) */}
-          <div className="relative w-full h-[400px] sm:h-[460px]">
-            {/* 1. Figma (Top-Left) */}
+          {/* Floating Application Tiles */}
+          <div className="relative w-full h-[380px] sm:h-[420px]">
+            {/* 1. Figma */}
             <div
               onClick={() => setActiveIntegration('figma')}
-              className="absolute left-[8%] sm:left-[12%] top-[30%] -translate-y-1/2 rounded-2xl bg-white border border-zinc-200/80 p-3.5 shadow-md hover:shadow-xl hover:scale-105 transition-all cursor-pointer z-20 group"
+              className="absolute left-[8%] sm:left-[12%] top-[30%] -translate-y-1/2 rounded-2xl bg-white border border-zinc-200/80 p-3.5 shadow-md hover:shadow-xl hover:scale-105 transition-all cursor-pointer z-20"
             >
               <div className="relative">
-                {/* Figma colored icon representation */}
                 <div className="w-8 h-8 flex flex-col justify-between">
                   <div className="flex">
                     <div className="w-4 h-4 rounded-l-full bg-[#f24e1e]" />
@@ -519,32 +538,28 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLaunchApp }) => {
                     <div className="w-4 h-4 rounded-full bg-[#0acf83]" />
                   </div>
                 </div>
-                {/* Red dot badge */}
                 <span className="absolute -top-2 -right-2 w-3.5 h-3.5 rounded-full bg-[#ef4444] border-2 border-white shadow-2xs" />
               </div>
             </div>
 
-            {/* 2. Google Calendar "31" (Top Center-Left) */}
+            {/* 2. Google Calendar "31" */}
             <div
               onClick={() => setActiveIntegration('calendar')}
               className="absolute left-[24%] sm:left-[28%] top-[12%] rounded-2xl bg-white border border-zinc-200/80 p-3.5 shadow-md hover:shadow-xl hover:scale-105 transition-all cursor-pointer z-20"
             >
               <div className="relative flex flex-col items-center">
-                {/* Red top tab badge */}
                 <div className="absolute -top-4 w-7 h-2.5 bg-[#ef4444] rounded-full shadow-2xs" />
                 <span className="text-xl font-bold font-mono text-zinc-900 pt-1">31</span>
               </div>
             </div>
 
-            {/* 3. Slack (Top Center) */}
+            {/* 3. Slack */}
             <div
               onClick={() => setActiveIntegration('slack')}
               className="absolute left-[50%] sm:left-[54%] top-[14%] rounded-2xl bg-white border border-zinc-200/80 p-3.5 shadow-md hover:shadow-xl hover:scale-105 transition-all cursor-pointer z-20"
             >
               <div className="relative">
-                {/* Red tab badge */}
                 <div className="absolute -top-4 -right-1 w-7 h-2.5 bg-[#ef4444] rounded-full shadow-2xs" />
-                {/* Slack hashtag icon */}
                 <div className="w-8 h-8 grid grid-cols-2 gap-1 p-0.5">
                   <div className="bg-[#e01e5a] rounded-sm" />
                   <div className="bg-[#36c5f0] rounded-sm" />
@@ -554,13 +569,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLaunchApp }) => {
               </div>
             </div>
 
-            {/* 4. Google Meet (Top Right) */}
+            {/* 4. Google Meet */}
             <div
               onClick={() => setActiveIntegration('meet')}
               className="absolute right-[18%] sm:right-[22%] top-[18%] rounded-2xl bg-white border border-zinc-200/80 p-3.5 shadow-md hover:shadow-xl hover:scale-105 transition-all cursor-pointer z-20"
             >
               <div className="relative">
-                {/* Google Meet icon visual */}
                 <div className="w-8 h-8 flex items-center justify-center">
                   <div className="w-6 h-5 bg-[#00ac47] rounded-sm relative flex items-center justify-center">
                     <div className="w-0 h-0 border-t-[5px] border-t-transparent border-l-[7px] border-l-[#1a73e8] border-b-[5px] border-b-transparent ml-5" />
@@ -569,74 +583,58 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLaunchApp }) => {
               </div>
             </div>
 
-            {/* 5. Miro (Far Right) */}
+            {/* 5. Miro */}
             <div
               onClick={() => setActiveIntegration('miro')}
               className="absolute right-[6%] sm:right-[10%] top-[45%] -translate-y-1/2 rounded-2xl bg-[#ffd02f] p-3.5 shadow-md hover:shadow-xl hover:scale-105 transition-all cursor-pointer z-20"
             >
               <div className="relative flex items-center justify-center">
-                {/* Red notification dot */}
                 <span className="absolute -top-4 -right-2 w-3.5 h-3.5 rounded-full bg-[#ef4444] border-2 border-white shadow-2xs" />
                 <span className="text-xl font-black text-black tracking-tighter">///</span>
-                {/* Small sync pill */}
-                <span className="absolute -bottom-4 right-0 text-[8px] font-bold bg-white px-1.5 py-0.5 rounded-full shadow-2xs border border-zinc-200 text-zinc-700">
-                  SYNC
-                </span>
               </div>
             </div>
 
-            {/* 6. Google Drive (Bottom Left) */}
+            {/* 6. Google Drive */}
             <div
               onClick={() => setActiveIntegration('drive')}
               className="absolute left-[20%] sm:left-[24%] bottom-[20%] rounded-2xl bg-white border border-zinc-200/80 p-3.5 shadow-md hover:shadow-xl hover:scale-105 transition-all cursor-pointer z-20"
             >
               <div className="relative flex flex-col items-center">
-                {/* Triangle Drive icon representation */}
                 <div className="w-8 h-7 relative flex items-center justify-center">
                   <div className="w-7 h-6 border-b-4 border-b-[#0066da] border-l-4 border-l-[#00ac47] border-r-4 border-r-[#ffba00] rounded-sm transform rotate-12" />
                 </div>
-                {/* Link icon pill */}
-                <span className="absolute -bottom-3 -left-2 text-[9px] bg-white border border-zinc-200 px-1.5 py-0.5 rounded-full shadow-2xs flex items-center gap-1 text-zinc-600">
-                  <HugeiconsIcon icon={Link01Icon} className="h-2.5 w-2.5" />
-                </span>
               </div>
             </div>
 
-            {/* 7. Messages / Chat (Bottom Center) */}
+            {/* 7. Messages / Chat */}
             <div
               onClick={() => setActiveIntegration('messages')}
               className="absolute left-[48%] sm:left-[52%] bottom-[24%] rounded-2xl bg-[#34c759] p-3.5 shadow-md hover:shadow-xl hover:scale-105 transition-all cursor-pointer z-20"
             >
               <div className="relative flex items-center justify-center">
-                {/* Red top tab badge */}
                 <div className="absolute -top-4 w-7 h-2.5 bg-[#ef4444] rounded-full shadow-2xs" />
-                {/* White chat bubble icon */}
                 <div className="w-7 h-6 bg-white rounded-full flex items-center justify-center">
                   <div className="w-1.5 h-1.5 bg-[#34c759] rounded-full" />
                 </div>
               </div>
             </div>
 
-            {/* 8. Notion (Bottom Right) */}
+            {/* 8. Notion */}
             <div
               onClick={() => setActiveIntegration('notion')}
               className="absolute right-[18%] sm:right-[22%] bottom-[16%] rounded-2xl bg-white border border-zinc-200/80 p-3.5 shadow-md hover:shadow-xl hover:scale-105 transition-all cursor-pointer z-20"
             >
               <div className="relative flex items-center justify-center">
                 <span className="text-2xl font-black font-serif text-zinc-900">N</span>
-                {/* Black notification pill with bell */}
-                <span className="absolute -bottom-3 -right-3 bg-zinc-900 text-white text-[9px] px-2 py-0.5 rounded-full shadow-xs flex items-center gap-1">
-                  <span>🔔</span>
-                </span>
               </div>
             </div>
 
-            {/* Center Core Info Modal / Popover */}
+            {/* Center Info Popover */}
             {activeIntegration && (
               <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-30 bg-white border border-zinc-200 rounded-3xl p-5 shadow-2xl max-w-xs text-center space-y-2 animate-fadeIn">
                 <div className="flex items-center justify-between pb-1 border-b border-zinc-100">
                   <span className="text-xs font-bold text-zinc-900 uppercase">
-                    {integrations.find((i) => i.id === activeIntegration)?.name} Integration
+                    {integrations.find((i) => i.id === activeIntegration)?.name}
                   </span>
                   <button
                     onClick={() => setActiveIntegration(null)}
@@ -655,7 +653,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLaunchApp }) => {
                   onClick={onLaunchApp}
                   className="w-full rounded-full bg-zinc-900 text-white text-[11px] font-semibold py-1.5 hover:bg-black transition-colors cursor-pointer mt-1"
                 >
-                  View Ingestion Stream
+                  Open in workspace
                 </button>
               </div>
             )}
@@ -663,18 +661,18 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLaunchApp }) => {
         </div>
       </section>
 
-      {/* 5. CALL TO ACTION FOOTER */}
-      <footer id="ecosystem" className="border-t border-zinc-200/80 bg-white py-16 px-4 sm:px-6 lg:px-8">
+      {/* 6. CALL TO ACTION FOOTER */}
+      <footer className="border-t border-zinc-200/80 bg-white py-16 px-4 sm:px-6 lg:px-8">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-8">
           <div className="space-y-2 text-center md:text-left">
             <div className="flex items-center justify-center md:justify-start space-x-2">
               <div className="w-7 h-7 rounded-xl bg-zinc-900 text-white flex items-center justify-center shadow-xs">
                 <HugeiconsIcon icon={FlashIcon} className="h-3.5 w-3.5 fill-current" />
               </div>
-              <span className="text-base font-bold text-zinc-900">A.C.E Platform</span>
+              <span className="text-base font-bold text-zinc-900">A.C.E</span>
             </div>
             <p className="text-xs text-zinc-500 max-w-md">
-              Enterprise Commercial Engine with multi-agent reasoning, dynamic yield protection, and buying center intelligence.
+              Adaptive commercial execution platform for high-velocity teams.
             </p>
           </div>
 
@@ -683,7 +681,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLaunchApp }) => {
               onClick={onLaunchApp}
               className="flex items-center space-x-2 rounded-full bg-zinc-900 hover:bg-black px-6 py-3 text-xs font-bold text-white shadow-xs transition-all cursor-pointer active:scale-95"
             >
-              <span>Launch Enterprise App</span>
+              <span>{session.isAuthenticated ? 'Open dashboard' : 'Get started'}</span>
               <HugeiconsIcon icon={ArrowRight01Icon} className="h-4 w-4" />
             </button>
           </div>
@@ -692,9 +690,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLaunchApp }) => {
         <div className="max-w-6xl mx-auto mt-12 pt-6 border-t border-zinc-100 flex flex-col sm:flex-row items-center justify-between text-[11px] text-zinc-400 gap-4">
           <div>© {new Date().getFullYear()} A.C.E Inc. All rights reserved.</div>
           <div className="flex items-center space-x-6">
-            <span>Enterprise Security</span>
-            <span>SOC 2 Type II Certified</span>
-            <span>99.99% SLA</span>
+            <span>Security</span>
+            <span>SOC 2 Certified</span>
+            <span>99.9% Uptime</span>
           </div>
         </div>
       </footer>

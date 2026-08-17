@@ -109,18 +109,18 @@ export const CommandCenter: React.FC<CommandCenterProps> = ({
 
   return (
     <div className="space-y-6 pb-6">
-      {/* Top Banner with Commercial Overview Status */}
+      {/* Top Banner with Overview Status */}
       <div className="rounded-3xl border border-zinc-200/80 bg-zinc-50/80 p-5 shadow-xs">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center space-x-2">
               <span className="flex h-2 w-2 rounded-full bg-emerald-500" />
               <h1 className="text-xl font-bold tracking-tight text-zinc-900 sm:text-2xl">
-                Commercial Overview & Active Pipeline
+                Pipeline & Active Deals
               </h1>
             </div>
             <p className="text-xs sm:text-sm text-zinc-500">
-              Autonomous yield optimization, margin protection, and real-time commercial alignment across all active enterprise accounts.
+              Pricing optimization, margin protection, and stakeholder alignment across your active accounts.
             </p>
           </div>
 
@@ -133,7 +133,7 @@ export const CommandCenter: React.FC<CommandCenterProps> = ({
               className="flex items-center space-x-1.5 rounded-full bg-zinc-900 hover:bg-black px-4 py-2 text-xs font-semibold text-white transition-all disabled:opacity-50 shadow-xs cursor-pointer"
             >
               <HugeiconsIcon icon={Refresh01Icon} className={`h-3.5 w-3.5 ${isRunningSweep ? 'animate-spin' : ''}`} />
-              <span>{isRunningSweep ? 'Optimizing...' : 'Run Yield Sweep'}</span>
+              <span>{isRunningSweep ? 'Optimizing...' : 'Optimize Pricing'}</span>
             </button>
 
             <button
