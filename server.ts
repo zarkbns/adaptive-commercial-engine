@@ -701,6 +701,235 @@ const handleContextRelations = async (req: express.Request, res: express.Respons
 app.get('/context/relations', handleContextRelations);
 app.get('/api/hydra/context/relations', handleContextRelations);
 
+// Health endpoint (HydraDB OSS standard)
+app.get('/healthz', (req, res) => {
+  res.json({ status: 'ok' });
+});
+
+// HydraDB OSS Standard OpenCypher Execution Endpoint: POST /v1/graphs/:graph_id/query
+app.post('/v1/graphs/:graph_id/query', async (req, res) => {
+  const { graph_id } = req.params;
+  const { query, parameters = {}, query_id = 'query_' + Date.now().toString(36) } = req.body || {};
+
+  if (!query || typeof query !== 'string') {
+    return res.status(400).json({ error: 'OpenCypher query string is required' });
+  }
+
+  const queryTrimmed = query.trim();
+
+  // 1. Node Upsert: MERGE (n {id: $id}) SET ...
+  if (queryTrimmed.includes('MERGE (n {id: $id})')) {
+    const id = String(parameters.id);
+    let properties: Record<string, any> = {};
+    try {
+      properties = typeof parameters.properties === 'string' ? JSON.parse(parameters.properties) : (parameters.properties || {});
+    } catch {
+      properties = parameters.properties || {};
+    }
+
+    const existing = hydraNodesStore.get(id);
+    const node: ServerHydraNode = {
+      id,
+      type: parameters.type || existing?.type || 'Account',
+      label: parameters.label || existing?.label || id,
+      tier: (parameters.tier || existing?.tier || 'warm') as any,
+      properties,
+      validFrom: parameters.validFrom || existing?.validFrom || new Date().toISOString(),
+      validTo: parameters.validTo !== undefined ? parameters.validTo : (existing?.validTo ?? null),
+      accessCount: existing ? existing.accessCount + 1 : 1,
+      lastAccessed: new Date().toISOString(),
+      commitHash: existing?.commitHash || 'oss_commit',
+      version: existing ? existing.version + 1 : 1,
+      tags: Array.isArray(parameters.tags) ? parameters.tags : (existing?.tags || []),
+    };
+
+    hydraNodesStore.set(id, node);
+    return res.json({
+      query_id,
+      columns: ['id'],
+      rows: [[id]],
+      bookmark: 'bm_' + Date.now(),
+    });
+  }
+
+  // 2. Edge Upsert: MATCH (s {id: $sourceId}), (t {id: $targetId}) MERGE (s)-[r:RELATION {id: $id}]->(t) SET ...
+  if (queryTrimmed.includes('MERGE (s)-[r:RELATION {id: $id}]->(t)')) {
+    const id = String(parameters.id);
+    const sourceId = String(parameters.sourceId);
+    const targetId = String(parameters.targetId);
+
+    let properties: Record<string, any> = {};
+    try {
+      properties = typeof parameters.properties === 'string' ? JSON.parse(parameters.properties) : (parameters.properties || {});
+    } catch {
+      properties = parameters.properties || {};
+    }
+
+    const existing = hydraEdgesStore.get(id);
+    const edge: ServerHydraEdge = {
+      id,
+      sourceId,
+      targetId,
+      relationship: parameters.relationship || existing?.relationship || 'INFLUENCES',
+      weight: Number(parameters.weight ?? existing?.weight ?? 1.0),
+      properties,
+      validFrom: parameters.validFrom || existing?.validFrom || new Date().toISOString(),
+      validTo: parameters.validTo !== undefined ? parameters.validTo : (existing?.validTo ?? null),
+      commitHash: existing?.commitHash || 'oss_commit',
+    };
+
+    hydraEdgesStore.set(id, edge);
+    return res.json({
+      query_id,
+      columns: ['id'],
+      rows: [[id]],
+      bookmark: 'bm_' + Date.now(),
+    });
+  }
+
+  // 3. Node/Edge Deletion: DETACH DELETE / DELETE
+  if (queryTrimmed.includes('DELETE')) {
+    const idToDelete = parameters.id || parameters.nodeId;
+    if (idToDelete) {
+      hydraNodesStore.delete(String(idToDelete));
+      // Delete any attached edges
+      for (const [edgeId, edge] of hydraEdgesStore.entries()) {
+        if (edge.sourceId === idToDelete || edge.targetId === idToDelete || edgeId === idToDelete) {
+          hydraEdgesStore.delete(edgeId);
+        }
+      }
+    }
+    return res.json({
+      query_id,
+      columns: ['deleted'],
+      rows: [[true]],
+      bookmark: 'bm_' + Date.now(),
+    });
+  }
+
+  // 4. Graph Query with Neighbors: MATCH (n) ... OPTIONAL MATCH (n)-[r]-(m)
+  if (queryTrimmed.includes('collect({') || queryTrimmed.includes('neighborId')) {
+    const entityTypes = parameters.entityTypes;
+    const limit = Number(parameters.limit || 20);
+
+    let nodes = Array.from(hydraNodesStore.values());
+    if (entityTypes && Array.isArray(entityTypes) && entityTypes.length > 0) {
+      nodes = nodes.filter((n) => entityTypes.includes(n.type));
+    }
+
+    const rows = nodes.slice(0, limit).map((node) => {
+      // Find connected neighbors
+      const connectedEdges = Array.from(hydraEdgesStore.values()).filter(
+        (e) => e.sourceId === node.id || e.targetId === node.id
+      );
+
+      const neighbors = connectedEdges.map((edge) => {
+        const neighborId = edge.sourceId === node.id ? edge.targetId : edge.sourceId;
+        const neighborNode = hydraNodesStore.get(neighborId);
+        return {
+          edgeId: edge.id,
+          relationship: edge.relationship,
+          weight: edge.weight,
+          sourceId: edge.sourceId,
+          targetId: edge.targetId,
+          neighborId,
+          neighborType: neighborNode?.type || 'Contact',
+          neighborLabel: neighborNode?.label || neighborId,
+          neighborProps: JSON.stringify(neighborNode?.properties || {}),
+        };
+      });
+
+      return [
+        node.id,
+        node.type,
+        node.label,
+        JSON.stringify(node.properties),
+        node.tier,
+        node.validFrom,
+        node.validTo || null,
+        node.commitHash,
+        node.version,
+        node.tags,
+        neighbors,
+      ];
+    });
+
+    return res.json({
+      query_id,
+      columns: [
+        'id', 'type', 'label', 'properties', 'tier', 'validFrom',
+        'validTo', 'commitHash', 'version', 'tags', 'neighbors'
+      ],
+      rows,
+      bookmark: 'bm_' + Date.now(),
+    });
+  }
+
+  // 5. Query Specific Nodes / All Nodes: MATCH (n)
+  if (queryTrimmed.includes('MATCH (n)')) {
+    const entityType = parameters.entityType || parameters.type;
+    const entityId = parameters.id || parameters.entityId;
+    let nodes = Array.from(hydraNodesStore.values());
+
+    if (entityType) {
+      nodes = nodes.filter((n) => n.type === entityType);
+    }
+    if (entityId) {
+      nodes = nodes.filter((n) => n.id === entityId);
+    }
+
+    const rows = nodes.map((n) => [
+      n.id,
+      n.type,
+      n.label,
+      JSON.stringify(n.properties),
+      n.tier,
+      n.validFrom,
+      n.validTo || null,
+      n.commitHash,
+      n.version,
+      n.tags,
+    ]);
+
+    return res.json({
+      query_id,
+      columns: ['id', 'type', 'label', 'properties', 'tier', 'validFrom', 'validTo', 'commitHash', 'version', 'tags'],
+      rows,
+      bookmark: 'bm_' + Date.now(),
+    });
+  }
+
+  // 6. Query Specific Edges / All Edges: MATCH (s)-[r]->(t)
+  if (queryTrimmed.includes('MATCH (s)-[r]->(t)')) {
+    const edges = Array.from(hydraEdgesStore.values());
+    const rows = edges.map((e) => [
+      e.id,
+      e.sourceId,
+      e.targetId,
+      e.relationship,
+      e.weight,
+      JSON.stringify(e.properties),
+      e.validFrom,
+      e.validTo || null,
+    ]);
+
+    return res.json({
+      query_id,
+      columns: ['id', 'sourceId', 'targetId', 'relationship', 'weight', 'properties', 'validFrom', 'validTo'],
+      rows,
+      bookmark: 'bm_' + Date.now(),
+    });
+  }
+
+  // Default Fallback for generic MATCH
+  return res.json({
+    query_id,
+    columns: ['result'],
+    rows: [],
+    bookmark: 'bm_' + Date.now(),
+  });
+});
+
 // Health endpoint
 app.get('/api/health', async (req, res) => {
   let hydraUpstreamReachable = false;

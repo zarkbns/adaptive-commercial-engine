@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  # HydraDB OSS Context Substrate Instance
+  hydradb:
+    image: ghcr.io/hydra-db/hydradb:latest
+    container_name: ace-hydradb-oss
+    restart: unless-stopped
+    ports:
+      - "8443:8443"
+      - "8000:8000"
+    environment:
+      - RUST_LOG=info
+      - HYDRA_HOST=0.0.0.0
+      - HYDRA_PORT=8000
+      - HYDRA_DATABASE=ace
+      - HYDRA_STORAGE_PATH=/data
+    volumes:
+      - hydradb-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || curl -f http://localhost:8443/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # Adaptive Commercial Engine (ACE) Application Service
+  ace-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ace-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - NODE_ENV=production
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - APP_URL=${APP_URL:-http://localhost:3000}
+      - HYDRADB_URL=http://hydradb:8000
+      - HYDRADB_DATABASE=ace
+      - HYDRADB_API_KEY=${HYDRADB_API_KEY:-}
+    depends_on:
+      hydradb:
+        condition: service_healthy
+
+volumes:
+  hydradb-data:
+    driver: local
