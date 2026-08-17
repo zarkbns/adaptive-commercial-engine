@@ -4,7 +4,13 @@ dist/
 coverage/
 .DS_Store
 *.log
-.env*
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 !.env.example
 hydradb-data/
+.hydradb/
+hydra-db/
 *.token
