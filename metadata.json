@@ -1,5 +1,5 @@
 {
-  "name": "Remix A.C.E (Adaptive Commercial Engine)",
+  "name": "ace",
   "description": "Adaptive Commercial Engine with integrated HydraDB temporal context graph, agent memory substrate, autonomous dynamic pricing, and commercial deal intelligence.",
   "requestFramePermissions": [],
   "majorCapabilities": [
