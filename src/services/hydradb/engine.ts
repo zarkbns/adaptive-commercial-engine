@@ -94,7 +94,11 @@ export class HydraDBEngine {
 
   constructor(customBaseUrl?: string) {
     const envUrl = getEnvValue('HYDRADB_URL', '');
-    this.baseUrl = (customBaseUrl || envUrl || (typeof window !== 'undefined' ? '' : 'http://localhost:3000')).replace(/\/+$/, '');
+    this.baseUrl = (
+      customBaseUrl ||
+      envUrl ||
+      (typeof window !== 'undefined' ? '' : 'http://hydradb:8443')
+    ).replace(/\/+$/, '');
     this.graphId = getEnvValue('HYDRADB_GRAPH_ID', getEnvValue('HYDRADB_DATABASE', 'default'));
     this.apiKey = getEnvValue('HYDRADB_API_KEY', '');
     this.namespace = getEnvValue('HYDRADB_NAMESPACE', 'default');

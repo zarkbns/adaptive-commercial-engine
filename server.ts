@@ -4,19 +4,23 @@ import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
 import { GoogleGenAI } from '@google/genai';
 import { classifyCopilotIntent } from './src/services/ace/intentGate';
+import { HydraDBEngine } from './src/services/hydradb/engine';
 
 dotenv.config();
 
 const app = express();
-const PORT = 3000;
-const HYDRADB_URL = process.env.HYDRADB_URL || 'http://localhost:8000';
+const PORT = Number(process.env.PORT || 3000);
+const HYDRADB_URL = (process.env.HYDRADB_URL || 'http://hydradb:8443').replace(/\/+$/, '');
 const HYDRADB_API_KEY = process.env.HYDRADB_API_KEY || '';
-const HYDRADB_DATABASE = 'ace';
+const HYDRADB_NAMESPACE = process.env.HYDRADB_NAMESPACE || 'default';
+const HYDRADB_GRAPH_ID = process.env.HYDRADB_GRAPH_ID || process.env.HYDRADB_DATABASE || 'default';
 
 function getHydraHeaders(extraHeaders?: Record<string, string>): Record<string, string> {
   const headers: Record<string, string> = {
-    'API-Version': '2',
-    ...(HYDRADB_API_KEY ? { 'Authorization': `Bearer ${HYDRADB_API_KEY}` } : {}),
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    'X-Graph-Namespace': HYDRADB_NAMESPACE,
+    ...(HYDRADB_API_KEY ? { Authorization: `Bearer ${HYDRADB_API_KEY}` } : {}),
     ...extraHeaders,
   };
   return headers;
@@ -45,929 +49,100 @@ function getGenAI(): GoogleGenAI | null {
 }
 
 // ---------------------------------------------------------------------------
-// Authoritative HydraDB v2 Substrate & Ingestion Engine (Server-Side)
+// HydraDB OSS Direct Proxy & Reverse Gateway
+// All OpenCypher queries and graph mutations route directly to the real HydraDB container.
 // ---------------------------------------------------------------------------
 
-interface ServerHydraJob {
-  jobId: string;
-  status: 'queued' | 'processing' | 'completed' | 'failed';
-  progress: number;
-  content: string;
-  source?: string;
-  contextType?: string;
-  extractedEntitiesCount: number;
-  extractedRelationsCount: number;
-  resultNodeIds: string[];
-  createdAt: string;
-  completedAt?: string;
-  error?: string;
-}
-
-interface ServerHydraNode {
-  id: string;
-  type: string;
-  label: string;
-  properties: Record<string, any>;
-  validFrom: string;
-  validTo?: string | null;
-  tier: 'hot' | 'warm' | 'cold';
-  accessCount: number;
-  lastAccessed: string;
-  commitHash: string;
-  version: number;
-  tags: string[];
-}
-
-interface ServerHydraEdge {
-  id: string;
-  sourceId: string;
-  targetId: string;
-  relationship: string;
-  weight: number;
-  properties: Record<string, any>;
-  validFrom: string;
-  validTo?: string | null;
-  commitHash: string;
-}
-
-// Initial Authoritative Commercial Substrate Entities
-const hydraNodesStore = new Map<string, ServerHydraNode>();
-const hydraEdgesStore = new Map<string, ServerHydraEdge>();
-const hydraJobsStore = new Map<string, ServerHydraJob>();
-
-function seedHydraSubstrate() {
-  const now = new Date().toISOString();
-  const initialNodes: ServerHydraNode[] = [
-    {
-      id: 'acc_apex_logistics',
-      type: 'Account',
-      label: 'Apex Logistics Global',
-      properties: {
-        industry: 'Supply Chain & Freight Tech',
-        annualRevenue: '$2.8B',
-        employeeCount: 14500,
-        techStack: ['Snowflake', 'Kafka', 'Kubernetes'],
-        dealStage: 'Negotiation / Concession Phase',
-        targetArr: 480000,
-        dealHealthScore: 92,
-      },
-      tier: 'hot',
-      accessCount: 342,
-      lastAccessed: now,
-      commitHash: 'hydra_init_01',
-      version: 1,
-      validFrom: now,
-      tags: ['Tier1', 'Enterprise', 'HighVelocity'],
-    },
-    {
-      id: 'contact_sarah_chen',
-      type: 'Contact',
-      label: 'Sarah Chen',
-      properties: {
-        role: 'VP Engineering & Technical Champion',
-        department: 'Infrastructure Architecture',
-        influenceScore: 0.94,
-        sentiment: 'Strongly Positive',
-        painPoints: ['Sub-second vector lookup across 100M events', 'State loss in distributed agent workflows'],
-      },
-      tier: 'hot',
-      accessCount: 188,
-      lastAccessed: now,
-      commitHash: 'hydra_init_01',
-      version: 1,
-      validFrom: now,
-      tags: ['Champion', 'Engineering'],
-    },
-    {
-      id: 'contact_marcus_vance',
-      type: 'Contact',
-      label: 'Marcus Vance',
-      properties: {
-        role: 'Chief Commercial Officer & Economic Buyer',
-        department: 'Executive Leadership',
-        influenceScore: 0.98,
-        sentiment: 'ROI Driven / Cautious on Upfronts',
-        budgetSignedOff: false,
-        discountExpectationPct: 15,
-      },
-      tier: 'hot',
-      accessCount: 215,
-      lastAccessed: now,
-      commitHash: 'hydra_init_01',
-      version: 1,
-      validFrom: now,
-      tags: ['EconomicBuyer', 'Executive'],
-    },
-    {
-      id: 'deal_apex_enterprise_license',
-      type: 'Deal',
-      label: 'Apex Logistics - Global Commercial Engine Deployment',
-      properties: {
-        targetArr: 480000,
-        termMonths: 24,
-        seats: 250,
-        listArr: 520000,
-        discountRequestedPct: 15,
-        targetGrossMarginPct: 83.4,
-      },
-      tier: 'hot',
-      accessCount: 450,
-      lastAccessed: now,
-      commitHash: 'hydra_init_01',
-      version: 1,
-      validFrom: now,
-      tags: ['ActiveDeal', 'HighARR'],
-    },
-    {
-      id: 'signal_expansion_hiring',
-      type: 'BuyingSignal',
-      label: 'Apex posted 18 Senior AI Platform Engineer roles in Q2',
-      properties: {
-        source: 'Job Board & LinkedIn Intelligence',
-        confidence: 0.96,
-        detectedAt: now,
-      },
-      tier: 'warm',
-      accessCount: 45,
-      lastAccessed: now,
-      commitHash: 'hydra_init_01',
-      version: 1,
-      validFrom: now,
-      tags: ['ExpansionSignal', 'Hiring'],
-    },
-    {
-      id: 'rule_concession_matrix_apex',
-      type: 'ConcessionRule',
-      label: 'A.C.E Enterprise Concession Matrix: Discount > 10% requires Multi-Year or Prepay',
-      properties: {
-        maxUnilateralDiscountPct: 10,
-        mandatoryGiveGetConditions: [
-          '3-Year Annual Advance Billing',
-          'Co-Marketing Case Study Release within 90 days',
-          'Standard Support SLA (no custom dedicated SRE without margin surcharge)',
-        ],
-        minimumGrossMarginFloorPct: 78.0,
-      },
-      tier: 'hot',
-      accessCount: 310,
-      lastAccessed: now,
-      commitHash: 'hydra_init_01',
-      version: 1,
-      validFrom: now,
-      tags: ['Policy', 'Governance', 'PricingGuardrail'],
-    },
-  ];
-
-  initialNodes.forEach((n) => hydraNodesStore.set(n.id, n));
-
-  const initialEdges: ServerHydraEdge[] = [
-    {
-      id: 'edge_chen_champions_deal',
-      sourceId: 'contact_sarah_chen',
-      targetId: 'deal_apex_enterprise_license',
-      relationship: 'CHAMPIONS',
-      weight: 0.94,
-      properties: { championStrength: 'High', verifiedMeetings: 6 },
-      validFrom: now,
-      commitHash: 'hydra_init_01',
-    },
-    {
-      id: 'edge_marcus_decides_pricing',
-      sourceId: 'contact_marcus_vance',
-      targetId: 'deal_apex_enterprise_license',
-      relationship: 'DECIDES_PRICING',
-      weight: 0.98,
-      properties: { decisionAuthority: 'Final Sign-off' },
-      validFrom: now,
-      commitHash: 'hydra_init_01',
-    },
-    {
-      id: 'edge_deal_tied_to_account',
-      sourceId: 'deal_apex_enterprise_license',
-      targetId: 'acc_apex_logistics',
-      relationship: 'PART_OF_ACCOUNT',
-      weight: 1.0,
-      properties: {},
-      validFrom: now,
-      commitHash: 'hydra_init_01',
-    },
-    {
-      id: 'edge_concession_enforced_on_deal',
-      sourceId: 'rule_concession_matrix_apex',
-      targetId: 'deal_apex_enterprise_license',
-      relationship: 'CONCESSION_TIED_TO',
-      weight: 0.99,
-      properties: { strictEnforcement: true },
-      validFrom: now,
-      commitHash: 'hydra_init_01',
-    },
-    {
-      id: 'edge_signal_targets_account',
-      sourceId: 'signal_expansion_hiring',
-      targetId: 'acc_apex_logistics',
-      relationship: 'TRIGGERED_BY',
-      weight: 0.92,
-      properties: {},
-      validFrom: now,
-      commitHash: 'hydra_init_01',
-    },
-  ];
-
-  initialEdges.forEach((e) => hydraEdgesStore.set(e.id, e));
-}
-
-seedHydraSubstrate();
-
-// Helper: Ingestion processing simulation that extracts entities and relations
-function processIngestionJob(jobId: string) {
-  const job = hydraJobsStore.get(jobId);
-  if (!job) return;
-
-  job.status = 'processing';
-  job.progress = 25;
-
-  setTimeout(() => {
-    job.progress = 65;
-    const now = new Date().toISOString();
-
-    // Extract or register new node from the ingested text
-    const newNodeId = 'node_' + Math.random().toString(36).substring(2, 10);
-    const summary = job.content.length > 80 ? job.content.substring(0, 80) + '...' : job.content;
-
-    const extractedNode: ServerHydraNode = {
-      id: newNodeId,
-      type: job.contextType || 'InteractionEpisode',
-      label: summary,
-      properties: {
-        rawContent: job.content,
-        source: job.source || 'Direct Ingest',
-        ingestedAt: now,
-      },
-      tier: 'hot',
-      accessCount: 1,
-      lastAccessed: now,
-      commitHash: 'commit_' + jobId.substring(0, 8),
-      version: 1,
-      validFrom: now,
-      tags: ['IngestedContext', job.contextType || 'General'],
-    };
-
-    hydraNodesStore.set(newNodeId, extractedNode);
-    job.resultNodeIds.push(newNodeId);
-    job.extractedEntitiesCount++;
-
-    // Link to Apex Logistics or primary deal if mentioned
-    if (job.content.toLowerCase().includes('apex') || job.content.toLowerCase().includes('logistics')) {
-      const edgeId = 'edge_' + Math.random().toString(36).substring(2, 10);
-      const edge: ServerHydraEdge = {
-        id: edgeId,
-        sourceId: newNodeId,
-        targetId: 'acc_apex_logistics',
-        relationship: 'PART_OF_ACCOUNT',
-        weight: 0.9,
-        properties: { automatedExtraction: true },
-        validFrom: now,
-        commitHash: 'commit_' + jobId.substring(0, 8),
-      };
-      hydraEdgesStore.set(edgeId, edge);
-      job.extractedRelationsCount++;
-    }
-
-    job.progress = 100;
-    job.status = 'completed';
-    job.completedAt = new Date().toISOString();
-  }, 400);
-}
-
-// ---------------------------------------------------------------------------
-// Official HydraDB v2 API Endpoints
-// Flow: /databases/status -> /context/ingest -> /context/status/:jobId -> /query -> /context/relations
-// ---------------------------------------------------------------------------
-
-// 0. GET /databases/status (and /api/hydra/databases/status)
-const handleDatabasesStatus = async (req: express.Request, res: express.Response) => {
-  const database = (req.query.database as string) || HYDRADB_DATABASE;
-
-  if (process.env.HYDRADB_URL && process.env.HYDRADB_URL !== 'http://localhost:8000') {
-    try {
-      const upstreamRes = await fetch(`${process.env.HYDRADB_URL}/databases/status?database=${encodeURIComponent(database)}`, {
-        headers: getHydraHeaders(),
-      });
-      if (upstreamRes.ok) {
-        const data = await upstreamRes.json();
-        return res.json(data);
-      }
-    } catch (e) {
-      console.warn('HydraDB upstream databases/status check fallback to native engine:', e);
-    }
-  }
-
-  // Native substrate response confirming ready_for_ingestion
-  return res.json({
-    database,
-    status: 'online',
-    data: {
-      infra: {
-        ready_for_ingestion: true,
-        cluster_health: 'healthy',
-        storage_tier: 'in-memory-accelerated',
-        active_shards: 1,
-      },
-    },
-    timestamp: new Date().toISOString(),
-  });
-};
-
-app.get('/databases/status', handleDatabasesStatus);
-app.get('/api/hydra/databases/status', handleDatabasesStatus);
-
-// 1. POST /context/ingest (and /api/hydra/context/ingest)
-const handleContextIngest = async (req: express.Request, res: express.Response) => {
-  const body = req.body || {};
-  const { content, source, contextType, metadata, entities, relations, authorAgent, file } = body;
-
-  if (!content && !file && (!entities || entities.length === 0)) {
-    return res.status(400).json({ error: 'Context content or entities are required for ingestion' });
-  }
-
-  // Pre-ingest check: verify /databases/status?database=ace for data.infra.ready_for_ingestion
-  if (process.env.HYDRADB_URL && process.env.HYDRADB_URL !== 'http://localhost:8000') {
-    try {
-      const statusCheckRes = await fetch(`${process.env.HYDRADB_URL}/databases/status?database=ace`, {
-        headers: getHydraHeaders(),
-      });
-      if (statusCheckRes.ok) {
-        const statusData = await statusCheckRes.json();
-        if (statusData?.data?.infra && statusData.data.infra.ready_for_ingestion === false) {
-          return res.status(503).json({ error: 'HydraDB cluster database=ace is not ready for ingestion' });
-        }
-      }
-    } catch (e) {
-      console.warn('HydraDB pre-ingest /databases/status check warning:', e);
-    }
-
-    // Forward to remote HydraDB instance using multipart/form-data with database form field
-    try {
-      const formData = new FormData();
-      formData.append('database', 'ace');
-      if (content) formData.append('content', content);
-      if (source) formData.append('source', source);
-      if (contextType) formData.append('contextType', contextType);
-      if (authorAgent) formData.append('authorAgent', authorAgent);
-      if (metadata) formData.append('metadata', typeof metadata === 'string' ? metadata : JSON.stringify(metadata));
-      if (entities) formData.append('entities', typeof entities === 'string' ? entities : JSON.stringify(entities));
-      if (relations) formData.append('relations', typeof relations === 'string' ? relations : JSON.stringify(relations));
-
-      const upstreamRes = await fetch(`${process.env.HYDRADB_URL}/context/ingest`, {
-        method: 'POST',
-        headers: getHydraHeaders(),
-        body: formData,
-      });
-      if (upstreamRes.ok) {
-        const data = await upstreamRes.json();
-        return res.json(data);
-      }
-    } catch (e) {
-      console.warn('HydraDB upstream multipart forward fallback to native engine:', e);
-    }
-  }
-
-  const jobId = 'job_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 7);
-  const now = new Date().toISOString();
-
-  // If explicit entities/relations were passed, register them immediately
-  const resultNodeIds: string[] = [];
-  let extractedEntities = 0;
-  let extractedRelations = 0;
-
-  if (Array.isArray(entities)) {
-    for (const ent of entities) {
-      if (ent.id && ent.label) {
-        const fullNode: ServerHydraNode = {
-          id: ent.id,
-          type: ent.type || 'ContextEntity',
-          label: ent.label,
-          properties: ent.properties || {},
-          tier: ent.tier || 'hot',
-          accessCount: ent.accessCount || 1,
-          lastAccessed: now,
-          commitHash: 'hydra_' + jobId.substring(0, 8),
-          version: (ent.version || 0) + 1,
-          validFrom: ent.validFrom || now,
-          tags: ent.tags || ['Ingested'],
-        };
-        hydraNodesStore.set(fullNode.id, fullNode);
-        resultNodeIds.push(fullNode.id);
-        extractedEntities++;
-      }
-    }
-  }
-
-  if (Array.isArray(relations)) {
-    for (const rel of relations) {
-      if (rel.sourceId && rel.targetId) {
-        const edgeId = rel.id || 'edge_' + Math.random().toString(36).substring(2, 9);
-        const fullEdge: ServerHydraEdge = {
-          id: edgeId,
-          sourceId: rel.sourceId,
-          targetId: rel.targetId,
-          relationship: rel.relationship || 'RELATED_TO',
-          weight: rel.weight ?? 0.85,
-          properties: rel.properties || {},
-          validFrom: rel.validFrom || now,
-          commitHash: 'hydra_' + jobId.substring(0, 8),
-        };
-        hydraEdgesStore.set(edgeId, fullEdge);
-        extractedRelations++;
-      }
-    }
-  }
-
-  const newJob: ServerHydraJob = {
-    jobId,
-    status: entities && entities.length > 0 ? 'completed' : 'queued',
-    progress: entities && entities.length > 0 ? 100 : 0,
-    content: content || 'Batch Entities Ingestion',
-    source: source || authorAgent || 'A.C.E Ingest Pipeline',
-    contextType: contextType || 'CommercialEvent',
-    extractedEntitiesCount: extractedEntities,
-    extractedRelationsCount: extractedRelations,
-    resultNodeIds,
-    createdAt: now,
-    completedAt: entities && entities.length > 0 ? now : undefined,
-  };
-
-  hydraJobsStore.set(jobId, newJob);
-
-  if (newJob.status !== 'completed') {
-    processIngestionJob(jobId);
-  }
-
-  return res.json({
-    jobId,
-    status: newJob.status,
-    indexing_status: newJob.status,
-    message: 'Context submitted to HydraDB ingestion substrate',
-    createdAt: now,
-  });
-};
-
-app.post('/context/ingest', handleContextIngest);
-app.post('/api/hydra/context/ingest', handleContextIngest);
-
-// 2. GET /context/status/:jobId (and /api/hydra/context/status/:jobId)
-const handleContextStatus = async (req: express.Request, res: express.Response) => {
-  const { jobId } = req.params;
-
-  if (process.env.HYDRADB_URL && process.env.HYDRADB_URL !== 'http://localhost:8000') {
-    try {
-      const upstreamRes = await fetch(`${process.env.HYDRADB_URL}/context/status/${jobId}`, {
-        headers: getHydraHeaders(),
-      });
-      if (upstreamRes.ok) {
-        const data = await upstreamRes.json();
-        return res.json(data);
-      }
-    } catch (e) {
-      console.warn('HydraDB upstream status forward fallback:', e);
-    }
-  }
-
-  const job = hydraJobsStore.get(jobId);
-  if (!job) {
-    return res.status(404).json({ error: `HydraDB Ingestion Job '${jobId}' not found` });
-  }
-
-  return res.json({
-    jobId: job.jobId,
-    status: job.status,
-    indexing_status: job.status,
-    progress: job.progress,
-    extractedEntitiesCount: job.extractedEntitiesCount,
-    extractedRelationsCount: job.extractedRelationsCount,
-    resultNodeIds: job.resultNodeIds,
-    createdAt: job.createdAt,
-    completedAt: job.completedAt,
-    error: job.error,
-  });
-};
-
-app.get('/context/status/:jobId', handleContextStatus);
-app.get('/api/hydra/context/status/:jobId', handleContextStatus);
-
-// 3. POST /query (and /api/hydra/query)
-const handleHydraQuery = async (req: express.Request, res: express.Response) => {
-  const { query, queryText, entityTypes, limit = 15, includeRelations = true, temporalAsOf } = req.body;
-  const searchText = (query || queryText || '').toLowerCase();
-
-  if (process.env.HYDRADB_URL && process.env.HYDRADB_URL !== 'http://localhost:8000') {
-    try {
-      const payload = {
-        database: 'ace',
-        ...req.body,
-      };
-      const upstreamRes = await fetch(`${process.env.HYDRADB_URL}/query`, {
-        method: 'POST',
-        headers: getHydraHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify(payload),
-      });
-      if (upstreamRes.ok) {
-        const data = await upstreamRes.json();
-        return res.json(data);
-      }
-    } catch (e) {
-      console.warn('HydraDB upstream query forward fallback:', e);
-    }
-  }
-
-  const results: any[] = [];
-  const nodes = Array.from(hydraNodesStore.values());
-
-  for (const node of nodes) {
-    if (entityTypes && Array.isArray(entityTypes) && entityTypes.length > 0) {
-      if (!entityTypes.includes(node.type)) continue;
-    }
-
-    let score = 0.5; // Base relevance
-    const nodeText = (node.label + ' ' + JSON.stringify(node.properties) + ' ' + (node.tags || []).join(' ')).toLowerCase();
-
-    if (searchText) {
-      const words = searchText.split(/\s+/).filter(Boolean);
-      let matches = 0;
-      for (const w of words) {
-        if (nodeText.includes(w)) matches++;
-      }
-      if (matches > 0) {
-        score = Math.min(0.99, 0.6 + (matches / words.length) * 0.38);
-      } else {
-        score = 0.3; // low default
-      }
-    }
-
-    // Boost hot tier
-    if (node.tier === 'hot') score = Math.min(1.0, score + 0.05);
-
-    let neighbors: any[] = [];
-    if (includeRelations) {
-      const relatedEdges = Array.from(hydraEdgesStore.values()).filter(
-        (e) => e.sourceId === node.id || e.targetId === node.id
-      );
-      neighbors = relatedEdges.map((edge) => {
-        const targetNodeId = edge.sourceId === node.id ? edge.targetId : edge.sourceId;
-        const targetNode = hydraNodesStore.get(targetNodeId);
-        return {
-          edge,
-          node: targetNode,
-        };
-      }).filter((n) => !!n.node);
-    }
-
-    results.push({
-      node,
-      score: Number(score.toFixed(3)),
-      semanticScore: Number(score.toFixed(3)),
-      graphCentralityScore: Number((neighbors.length * 0.15).toFixed(2)),
-      neighbors,
-    });
-  }
-
-  results.sort((a, b) => b.score - a.score);
-  const sliced = results.slice(0, limit);
-
-  return res.json({
-    database: 'ace',
-    query: searchText,
-    totalMatches: sliced.length,
-    results: sliced,
-    asOf: temporalAsOf || new Date().toISOString(),
-  });
-};
-
-app.post('/query', handleHydraQuery);
-app.post('/api/hydra/query', handleHydraQuery);
-
-// 4. GET /context/relations (and /api/hydra/context/relations)
-const handleContextRelations = async (req: express.Request, res: express.Response) => {
-  const { entityId, entityType } = req.query;
-
-  if (process.env.HYDRADB_URL && process.env.HYDRADB_URL !== 'http://localhost:8000') {
-    try {
-      const searchParams = new URLSearchParams();
-      searchParams.set('database', 'ace');
-      if (entityId && typeof entityId === 'string') searchParams.set('entityId', entityId);
-      if (entityType && typeof entityType === 'string') searchParams.set('entityType', entityType);
-
-      const upstreamRes = await fetch(`${process.env.HYDRADB_URL}/context/relations?${searchParams.toString()}`, {
-        headers: getHydraHeaders(),
-      });
-      if (upstreamRes.ok) {
-        const data = await upstreamRes.json();
-        return res.json(data);
-      }
-    } catch (e) {
-      console.warn('HydraDB upstream relations forward fallback:', e);
-    }
-  }
-
-  let nodes = Array.from(hydraNodesStore.values());
-  let edges = Array.from(hydraEdgesStore.values());
-
-  if (entityType && typeof entityType === 'string') {
-    nodes = nodes.filter((n) => n.type === entityType);
-    const validIds = new Set(nodes.map((n) => n.id));
-    edges = edges.filter((e) => validIds.has(e.sourceId) || validIds.has(e.targetId));
-  }
-
-  if (entityId && typeof entityId === 'string') {
-    edges = edges.filter((e) => e.sourceId === entityId || e.targetId === entityId);
-    const connectedIds = new Set<string>([entityId]);
-    edges.forEach((e) => {
-      connectedIds.add(e.sourceId);
-      connectedIds.add(e.targetId);
-    });
-    nodes = nodes.filter((n) => connectedIds.has(n.id));
-  }
-
-  return res.json({
-    database: 'ace',
-    nodes,
-    edges,
-    totalEntities: nodes.length,
-    totalRelations: edges.length,
-    asOfTimestamp: new Date().toISOString(),
-  });
-};
-
-app.get('/context/relations', handleContextRelations);
-app.get('/api/hydra/context/relations', handleContextRelations);
-
-// Health endpoint (HydraDB OSS standard)
-app.get('/healthz', (req, res) => {
-  res.json({ status: 'ok' });
-});
-
-// HydraDB OSS Standard OpenCypher Execution Endpoint: POST /v1/graphs/:graph_id/query
+// 1. OpenCypher Query & Mutation Endpoint (Direct Forwarder to HydraDB OSS)
 app.post('/v1/graphs/:graph_id/query', async (req, res) => {
   const { graph_id } = req.params;
-  const { query, parameters = {}, query_id = 'query_' + Date.now().toString(36) } = req.body || {};
+  const targetUrl = `${HYDRADB_URL}/v1/graphs/${encodeURIComponent(graph_id)}/query`;
 
-  if (!query || typeof query !== 'string') {
-    return res.status(400).json({ error: 'OpenCypher query string is required' });
-  }
+  try {
+    const upstreamHeaders = getHydraHeaders({
+      ...(req.headers['authorization'] ? { Authorization: req.headers['authorization'] as string } : {}),
+      ...(req.headers['x-graph-namespace'] ? { 'X-Graph-Namespace': req.headers['x-graph-namespace'] as string } : {}),
+    });
 
-  const queryTrimmed = query.trim();
+    const response = await fetch(targetUrl, {
+      method: 'POST',
+      headers: upstreamHeaders,
+      body: JSON.stringify(req.body),
+    });
 
-  // 1. Node Upsert: MERGE (n {id: $id}) SET ...
-  if (queryTrimmed.includes('MERGE (n {id: $id})')) {
-    const id = String(parameters.id);
-    let properties: Record<string, any> = {};
-    try {
-      properties = typeof parameters.properties === 'string' ? JSON.parse(parameters.properties) : (parameters.properties || {});
-    } catch {
-      properties = parameters.properties || {};
+    const contentType = response.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+      const data = await response.json();
+      return res.status(response.status).json(data);
+    } else {
+      const text = await response.text();
+      return res.status(response.status).send(text);
     }
-
-    const existing = hydraNodesStore.get(id);
-    const node: ServerHydraNode = {
-      id,
-      type: parameters.type || existing?.type || 'Account',
-      label: parameters.label || existing?.label || id,
-      tier: (parameters.tier || existing?.tier || 'warm') as any,
-      properties,
-      validFrom: parameters.validFrom || existing?.validFrom || new Date().toISOString(),
-      validTo: parameters.validTo !== undefined ? parameters.validTo : (existing?.validTo ?? null),
-      accessCount: existing ? existing.accessCount + 1 : 1,
-      lastAccessed: new Date().toISOString(),
-      commitHash: existing?.commitHash || 'oss_commit',
-      version: existing ? existing.version + 1 : 1,
-      tags: Array.isArray(parameters.tags) ? parameters.tags : (existing?.tags || []),
-    };
-
-    hydraNodesStore.set(id, node);
-    return res.json({
-      query_id,
-      columns: ['id'],
-      rows: [[id]],
-      bookmark: 'bm_' + Date.now(),
+  } catch (err: any) {
+    return res.status(503).json({
+      error: `HydraDB OSS upstream unavailable at ${HYDRADB_URL}`,
+      details: err.message,
     });
   }
-
-  // 2. Edge Upsert: MATCH (s {id: $sourceId}), (t {id: $targetId}) MERGE (s)-[r:RELATION {id: $id}]->(t) SET ...
-  if (queryTrimmed.includes('MERGE (s)-[r:RELATION {id: $id}]->(t)')) {
-    const id = String(parameters.id);
-    const sourceId = String(parameters.sourceId);
-    const targetId = String(parameters.targetId);
-
-    let properties: Record<string, any> = {};
-    try {
-      properties = typeof parameters.properties === 'string' ? JSON.parse(parameters.properties) : (parameters.properties || {});
-    } catch {
-      properties = parameters.properties || {};
-    }
-
-    const existing = hydraEdgesStore.get(id);
-    const edge: ServerHydraEdge = {
-      id,
-      sourceId,
-      targetId,
-      relationship: parameters.relationship || existing?.relationship || 'INFLUENCES',
-      weight: Number(parameters.weight ?? existing?.weight ?? 1.0),
-      properties,
-      validFrom: parameters.validFrom || existing?.validFrom || new Date().toISOString(),
-      validTo: parameters.validTo !== undefined ? parameters.validTo : (existing?.validTo ?? null),
-      commitHash: existing?.commitHash || 'oss_commit',
-    };
-
-    hydraEdgesStore.set(id, edge);
-    return res.json({
-      query_id,
-      columns: ['id'],
-      rows: [[id]],
-      bookmark: 'bm_' + Date.now(),
-    });
-  }
-
-  // 3. Node/Edge Deletion: DETACH DELETE / DELETE
-  if (queryTrimmed.includes('DELETE')) {
-    const idToDelete = parameters.id || parameters.nodeId;
-    if (idToDelete) {
-      hydraNodesStore.delete(String(idToDelete));
-      // Delete any attached edges
-      for (const [edgeId, edge] of hydraEdgesStore.entries()) {
-        if (edge.sourceId === idToDelete || edge.targetId === idToDelete || edgeId === idToDelete) {
-          hydraEdgesStore.delete(edgeId);
-        }
-      }
-    }
-    return res.json({
-      query_id,
-      columns: ['deleted'],
-      rows: [[true]],
-      bookmark: 'bm_' + Date.now(),
-    });
-  }
-
-  // 4. Graph Query with Neighbors: MATCH (n) ... OPTIONAL MATCH (n)-[r]-(m)
-  if (queryTrimmed.includes('collect({') || queryTrimmed.includes('neighborId')) {
-    const entityTypes = parameters.entityTypes;
-    const limit = Number(parameters.limit || 20);
-
-    let nodes = Array.from(hydraNodesStore.values());
-    if (entityTypes && Array.isArray(entityTypes) && entityTypes.length > 0) {
-      nodes = nodes.filter((n) => entityTypes.includes(n.type));
-    }
-
-    const rows = nodes.slice(0, limit).map((node) => {
-      // Find connected neighbors
-      const connectedEdges = Array.from(hydraEdgesStore.values()).filter(
-        (e) => e.sourceId === node.id || e.targetId === node.id
-      );
-
-      const neighbors = connectedEdges.map((edge) => {
-        const neighborId = edge.sourceId === node.id ? edge.targetId : edge.sourceId;
-        const neighborNode = hydraNodesStore.get(neighborId);
-        return {
-          edgeId: edge.id,
-          relationship: edge.relationship,
-          weight: edge.weight,
-          sourceId: edge.sourceId,
-          targetId: edge.targetId,
-          neighborId,
-          neighborType: neighborNode?.type || 'Contact',
-          neighborLabel: neighborNode?.label || neighborId,
-          neighborProps: JSON.stringify(neighborNode?.properties || {}),
-        };
-      });
-
-      return [
-        node.id,
-        node.type,
-        node.label,
-        JSON.stringify(node.properties),
-        node.tier,
-        node.validFrom,
-        node.validTo || null,
-        node.commitHash,
-        node.version,
-        node.tags,
-        neighbors,
-      ];
-    });
-
-    return res.json({
-      query_id,
-      columns: [
-        'id', 'type', 'label', 'properties', 'tier', 'validFrom',
-        'validTo', 'commitHash', 'version', 'tags', 'neighbors'
-      ],
-      rows,
-      bookmark: 'bm_' + Date.now(),
-    });
-  }
-
-  // 5. Query Specific Nodes / All Nodes: MATCH (n)
-  if (queryTrimmed.includes('MATCH (n)')) {
-    const entityType = parameters.entityType || parameters.type;
-    const entityId = parameters.id || parameters.entityId;
-    let nodes = Array.from(hydraNodesStore.values());
-
-    if (entityType) {
-      nodes = nodes.filter((n) => n.type === entityType);
-    }
-    if (entityId) {
-      nodes = nodes.filter((n) => n.id === entityId);
-    }
-
-    const rows = nodes.map((n) => [
-      n.id,
-      n.type,
-      n.label,
-      JSON.stringify(n.properties),
-      n.tier,
-      n.validFrom,
-      n.validTo || null,
-      n.commitHash,
-      n.version,
-      n.tags,
-    ]);
-
-    return res.json({
-      query_id,
-      columns: ['id', 'type', 'label', 'properties', 'tier', 'validFrom', 'validTo', 'commitHash', 'version', 'tags'],
-      rows,
-      bookmark: 'bm_' + Date.now(),
-    });
-  }
-
-  // 6. Query Specific Edges / All Edges: MATCH (s)-[r]->(t)
-  if (queryTrimmed.includes('MATCH (s)-[r]->(t)')) {
-    const edges = Array.from(hydraEdgesStore.values());
-    const rows = edges.map((e) => [
-      e.id,
-      e.sourceId,
-      e.targetId,
-      e.relationship,
-      e.weight,
-      JSON.stringify(e.properties),
-      e.validFrom,
-      e.validTo || null,
-    ]);
-
-    return res.json({
-      query_id,
-      columns: ['id', 'sourceId', 'targetId', 'relationship', 'weight', 'properties', 'validFrom', 'validTo'],
-      rows,
-      bookmark: 'bm_' + Date.now(),
-    });
-  }
-
-  // Default Fallback for generic MATCH
-  return res.json({
-    query_id,
-    columns: ['result'],
-    rows: [],
-    bookmark: 'bm_' + Date.now(),
-  });
 });
 
-// Health endpoint
+// 2. Health & Readiness Proxy to HydraDB OSS
+app.get('/healthz', async (req, res) => {
+  try {
+    const hydraRes = await fetch(`${HYDRADB_URL}/healthz`);
+    if (hydraRes.ok) {
+      const data = await hydraRes.json().catch(() => ({ status: 'ok' }));
+      return res.json({ status: 'ok', hydradb: data });
+    }
+    return res.status(hydraRes.status).json({ status: 'degraded', hydradb_status: hydraRes.status });
+  } catch (err: any) {
+    return res.status(503).json({ status: 'unavailable', error: err.message, targetUrl: `${HYDRADB_URL}/healthz` });
+  }
+});
+
+app.get('/readyz', async (req, res) => {
+  try {
+    const hydraRes = await fetch(`${HYDRADB_URL}/readyz`);
+    const text = await hydraRes.text();
+    return res.status(hydraRes.status).send(text);
+  } catch (err: any) {
+    return res.status(503).send(`HydraDB readyz check failed: ${err.message}`);
+  }
+});
+
+// 3. Application System Health & Substrate Inspection Endpoint
 app.get('/api/health', async (req, res) => {
   let hydraUpstreamReachable = false;
   let hydraUpstreamDetails: any = null;
 
-  if (process.env.HYDRADB_URL && process.env.HYDRADB_URL !== 'http://localhost:8000') {
-    try {
-      const checkRes = await fetch(`${process.env.HYDRADB_URL}/query`, {
-        method: 'POST',
-        headers: getHydraHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ database: 'ace', query: 'Target Corp', limit: 3 }),
-      });
-      if (checkRes.ok) {
-        hydraUpstreamReachable = true;
-        hydraUpstreamDetails = await checkRes.json();
-      }
-    } catch (e: any) {
-      hydraUpstreamDetails = { error: e.message };
+  try {
+    const checkRes = await fetch(`${HYDRADB_URL}/healthz`);
+    if (checkRes.ok) {
+      hydraUpstreamReachable = true;
+      hydraUpstreamDetails = await checkRes.json().catch(() => ({ status: 'ok' }));
+    } else {
+      hydraUpstreamDetails = { status: checkRes.status, text: await checkRes.text().catch(() => '') };
     }
+  } catch (e: any) {
+    hydraUpstreamDetails = { error: e.message };
   }
 
   res.json({
     status: 'ok',
     service: 'A.C.E - Adaptive Commercial Engine Server',
-    hydraStatus: 'HydraDB v2 Context Substrate Active',
+    hydraStatus: hydraUpstreamReachable ? 'HydraDB OSS Container Connected' : 'HydraDB OSS Container Disconnected',
     hydraConfig: {
-      database: 'ace',
-      configuredUrl: HYDRADB_URL,
+      targetUrl: HYDRADB_URL,
+      graphId: HYDRADB_GRAPH_ID,
+      namespace: HYDRADB_NAMESPACE,
       hasApiKey: !!HYDRADB_API_KEY,
       upstreamReachable: hydraUpstreamReachable,
-      upstreamSampleQuery: hydraUpstreamDetails,
+      upstreamDetails: hydraUpstreamDetails,
     },
-    hydraEndpoints: [
-      'GET /databases/status?database=ace',
-      'POST /context/ingest',
-      'GET /context/status/:jobId',
-      'POST /query',
-      'GET /context/relations?database=ace',
+    verifiedEndpoints: [
+      `POST ${HYDRADB_URL}/v1/graphs/:graph_id/query`,
+      `GET ${HYDRADB_URL}/healthz`,
+      `GET ${HYDRADB_URL}/readyz`,
     ],
     timestamp: new Date().toISOString(),
   });
@@ -975,15 +150,16 @@ app.get('/api/health', async (req, res) => {
 
 // ---------------------------------------------------------------------------
 // A.C.E Copilot Endpoint with Lightweight Intent Gate & Real-Time Token Streaming
+// Uses HydraDBEngine (which queries real HydraDB OSS via OpenCypher)
 // ---------------------------------------------------------------------------
 app.post('/api/ace/copilot', async (req, res) => {
-  const { prompt, conversationHistory } = req.body;
+  const { prompt } = req.body;
 
   if (!prompt || typeof prompt !== 'string') {
     return res.status(400).json({ error: 'Prompt is required' });
   }
 
-  // Set SSE headers for true low-latency token streaming
+  // Set SSE headers for token streaming
   res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
   res.setHeader('Cache-Control', 'no-cache, no-transform');
   res.setHeader('Connection', 'keep-alive');
@@ -995,7 +171,7 @@ app.post('/api/ace/copilot', async (req, res) => {
 
   const ai = getGenAI();
 
-  // 1. Run Lightweight Intent Gate (Keep existing HydraDB retrieval and intent-gating behavior unchanged)
+  // 1. Run Lightweight Intent Gate
   const gateResult = classifyCopilotIntent(prompt);
   console.log(`[IntentGate] Intent=${gateResult.intent} | Reason=${gateResult.reason} | Entities=[${gateResult.extractedEntities.join(', ')}]`);
 
@@ -1007,9 +183,7 @@ app.post('/api/ace/copilot', async (req, res) => {
 
   // =========================================================================
   // CASE A: CASUAL INTENT
-  // Greetings, small talk, jokes, acknowledgements, normal conversation.
-  // Rule: Must NOT query HydraDB and must NOT inject any account/deal context.
-  // Must generate natural conversational response via Gemini.
+  // Greetings, small talk, jokes, acknowledgements. No graph query needed.
   // =========================================================================
   if (gateResult.intent === 'CASUAL') {
     const casualSystemInstruction = `You are A.C.E (Adaptive Commercial Engine), an intelligent, conversational copilot for sales and commercial deal teams.
@@ -1073,23 +247,24 @@ Never output structured commercial dossiers, 상황/deal situation templates, or
   // =========================================================================
   // CASE B: COMMERCIAL INTENT
   // General sales, pricing, negotiation, renewal tactics, concessions, objections.
-  // Rule: Query HydraDB ONLY for general commercial governance / concession rules.
-  // Do NOT query or inject specific customer accounts (like Apex or Target).
+  // Query HydraDB OSS for concession governance rules.
   // =========================================================================
   if (gateResult.intent === 'COMMERCIAL') {
-    const commercialPolicyNodes: any[] = [];
-    for (const node of hydraNodesStore.values()) {
-      if (node.type === 'ConcessionRule' || node.tags?.includes('Policy') || node.tags?.includes('PricingGuardrail')) {
-        commercialPolicyNodes.push({
-          type: node.type,
-          label: node.label,
-          properties: node.properties,
-        });
-      }
-    }
+    const hydraEngine = HydraDBEngine.getInstance();
+    const policyResults = await hydraEngine.queryAsync({
+      queryText: 'ConcessionRule PricingGuardrail Governance Policy',
+      entityTypes: ['ConcessionRule', 'PricingConstraint'],
+      limit: 5,
+    });
+
+    const commercialPolicyNodes = policyResults.map(r => ({
+      type: r.node.type,
+      label: r.node.label,
+      properties: r.node.properties,
+    }));
 
     const policyContextStr = commercialPolicyNodes.length > 0
-      ? `\nActive Commercial Governance & Concession Policies:\n${JSON.stringify(commercialPolicyNodes, null, 2)}`
+      ? `\nActive Commercial Governance & Concession Policies from HydraDB:\n${JSON.stringify(commercialPolicyNodes, null, 2)}`
       : '\nStandard B2B Concession Rules: Discounts >10% require multi-year term or upfront payment. Corporate gross margin floor is 78.0%.';
 
     const commercialSystemInstruction = `You are A.C.E (Adaptive Commercial Engine), an experienced, sharp sales strategist sitting right beside the salesperson during a deal.
@@ -1153,77 +328,26 @@ Put together a two-option proposal for them—Option A with standard 1-year list
   // =========================================================================
   // CASE C: CONTEXT_REQUIRED INTENT
   // User explicitly referenced an account, customer, stakeholder, deal, or fact.
-  // Rule: Query HydraDB specifically for that context and its graph relationships.
+  // Query HydraDB OSS graph via OpenCypher for that entity and its 1-hop relationships.
   // =========================================================================
-  const matchedNodes: any[] = [];
-  const matchedEdges: any[] = [];
   const searchEntities = gateResult.extractedEntities;
+  const hydraEngine = HydraDBEngine.getInstance();
 
-  // 1. Query remote HydraDB instance if configured
-  if (process.env.HYDRADB_URL && process.env.HYDRADB_URL !== 'http://localhost:8000') {
-    try {
-      const hydraRes = await fetch(`${process.env.HYDRADB_URL}/query`, {
-        method: 'POST',
-        headers: getHydraHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({
-          database: 'ace',
-          query: gateResult.targetQueryText || prompt,
-          limit: 10,
-          includeRelations: true,
-        }),
-      });
-      if (hydraRes.ok) {
-        const hydraData = await hydraRes.json();
-        if (hydraData.results && Array.isArray(hydraData.results)) {
-          for (const item of hydraData.results) {
-            if (item.node) matchedNodes.push(item.node);
-            if (item.neighbors && Array.isArray(item.neighbors)) {
-              for (const n of item.neighbors) {
-                if (n.edge) {
-                  matchedEdges.push({
-                    relationship: n.edge.relationship,
-                    target: n.node ? n.node.label : n.edge.targetId,
-                    properties: n.edge.properties,
-                  });
-                }
-              }
-            }
-          }
-        }
-      }
-    } catch (err) {
-      console.warn('HydraDB upstream query during context retrieval fallback:', err);
-    }
-  }
+  const queryResults = await hydraEngine.queryAsync({
+    queryText: gateResult.targetQueryText || searchEntities.join(' ') || prompt,
+    includeNeighborhood: true,
+    limit: 10,
+  });
 
-  // 2. Query local HydraDB substrate nodes specifically matching the target entities
-  for (const node of hydraNodesStore.values()) {
-    const nodeText = (node.label + ' ' + JSON.stringify(node.properties) + ' ' + (node.tags || []).join(' ') + ' ' + node.id).toLowerCase();
-    const isEntityMatch = searchEntities.some(ent => nodeText.includes(ent.toLowerCase()));
-
-    if (isEntityMatch && !matchedNodes.some(n => n.id === node.id)) {
-      matchedNodes.push({
-        id: node.id,
-        type: node.type,
-        label: node.label,
-        properties: node.properties,
-        tier: node.tier,
-      });
-
-      // Retrieve connected relationships from HydraDB
-      for (const edge of hydraEdgesStore.values()) {
-        if (edge.sourceId === node.id || edge.targetId === node.id) {
-          const otherNodeId = edge.sourceId === node.id ? edge.targetId : edge.sourceId;
-          const otherNode = hydraNodesStore.get(otherNodeId);
-          matchedEdges.push({
-            relationship: edge.relationship,
-            target: otherNode ? otherNode.label : otherNodeId,
-            properties: edge.properties,
-          });
-        }
-      }
-    }
-  }
+  const matchedNodes = queryResults.map(r => r.node);
+  const matchedEdges = queryResults.flatMap(r => 
+    (r.neighbors || []).map(n => ({
+      relationship: n.edge.relationship,
+      source: n.edge.sourceId,
+      target: n.node.label || n.edge.targetId,
+      properties: n.edge.properties,
+    }))
+  );
 
   const substrateContextStr = matchedNodes.length > 0
     ? `\nAccount & Deal Context for Entities [${searchEntities.join(', ')}]:\nEntities:\n${JSON.stringify(matchedNodes, null, 2)}\n\nConnected Relationships:\n${JSON.stringify(matchedEdges, null, 2)}`
@@ -1388,4 +512,3 @@ async function startServer() {
 }
 
 startServer();
-

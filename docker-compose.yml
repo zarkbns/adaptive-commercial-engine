@@ -1,24 +1,26 @@
 version: '3.8'
 
 services:
-  # HydraDB OSS Context Substrate Instance
+  # Official HydraDB OSS Graph Substrate Instance
   hydradb:
     image: ghcr.io/hydra-db/hydradb:latest
     container_name: ace-hydradb-oss
     restart: unless-stopped
     ports:
       - "8443:8443"
-      - "8000:8000"
+      - "9090:9090"
+      - "7687:7687"
     environment:
       - RUST_LOG=info
       - HYDRA_HOST=0.0.0.0
-      - HYDRA_PORT=8000
-      - HYDRA_DATABASE=ace
+      - HYDRA_HTTP_PORT=8443
+      - HYDRA_ADMIN_PORT=9090
       - HYDRA_STORAGE_PATH=/data
+      - HYDRA_API_KEY=${HYDRADB_API_KEY:-}
     volumes:
       - hydradb-data:/data
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || curl -f http://localhost:8443/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:8443/healthz || curl -f http://localhost:9090/readyz || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -38,8 +40,9 @@ services:
       - NODE_ENV=production
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - APP_URL=${APP_URL:-http://localhost:3000}
-      - HYDRADB_URL=http://hydradb:8000
-      - HYDRADB_DATABASE=ace
+      - HYDRADB_URL=http://hydradb:8443
+      - HYDRADB_GRAPH_ID=default
+      - HYDRADB_NAMESPACE=default
       - HYDRADB_API_KEY=${HYDRADB_API_KEY:-}
     depends_on:
       hydradb:
