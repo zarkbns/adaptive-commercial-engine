@@ -261,11 +261,16 @@ Never output structured commercial dossiers, 상황/deal situation templates, or
   // =========================================================================
   if (gateResult.intent === 'COMMERCIAL') {
     const hydraEngine = HydraDBEngine.getInstance();
-    const policyResults = await hydraEngine.queryAsync({
-      queryText: 'ConcessionRule PricingGuardrail Governance Policy',
-      entityTypes: ['ConcessionRule', 'PricingConstraint'],
-      limit: 5,
-    });
+    let policyResults: any[] = [];
+    try {
+      policyResults = await hydraEngine.queryAsync({
+        queryText: 'ConcessionRule PricingGuardrail Governance Policy',
+        entityTypes: ['ConcessionRule', 'PricingConstraint'],
+        limit: 5,
+      });
+    } catch (err: any) {
+      console.warn('HydraDB OSS policy query unreachable / degraded:', err.message);
+    }
 
     const commercialPolicyNodes = policyResults.map(r => ({
       type: r.node.type,
@@ -343,11 +348,16 @@ Put together a two-option proposal for them—Option A with standard 1-year list
   const searchEntities = gateResult.extractedEntities;
   const hydraEngine = HydraDBEngine.getInstance();
 
-  const queryResults = await hydraEngine.queryAsync({
-    queryText: gateResult.targetQueryText || searchEntities.join(' ') || prompt,
-    includeNeighborhood: true,
-    limit: 10,
-  });
+  let queryResults: any[] = [];
+  try {
+    queryResults = await hydraEngine.queryAsync({
+      queryText: gateResult.targetQueryText || searchEntities.join(' ') || prompt,
+      includeNeighborhood: true,
+      limit: 10,
+    });
+  } catch (err: any) {
+    console.warn('HydraDB OSS context query unreachable / degraded:', err.message);
+  }
 
   const matchedNodes = queryResults.map(r => r.node);
   const matchedEdges = queryResults.flatMap(r => 
