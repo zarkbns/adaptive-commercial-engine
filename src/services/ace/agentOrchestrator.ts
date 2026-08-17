@@ -74,7 +74,7 @@ export class ACEAgentOrchestrator {
     const dealId = targetDeal ? targetDeal.id : 'deal_enterprise_commercial_01';
     const dealLabel = targetDeal ? targetDeal.label : 'Enterprise Commercial Contract';
 
-    const commit = hydra.commit(
+    const commit = await hydra.commit(
       'ace-pricing-optimizer',
       'Autonomous Yield & Margin Recalibration for Active Pipeline',
       {
@@ -122,7 +122,7 @@ export class ACEAgentOrchestrator {
 
     await new Promise((r) => setTimeout(r, 700));
 
-    const commit = hydra.commit(
+    const commit = await hydra.commit(
       'ace-hydra-memory',
       'HydraDB Memory Tier Rebalance & Semantic Breadth Expansion',
       {

@@ -748,34 +748,16 @@ export class HydraDBEngine {
   }
 
   /**
-   * Synchronous wrapper for commit
-   * Submits mutation to HydraDB and commits to memory only upon authoritative success.
+   * Authoritative Commit
+   * Submits mutation to HydraDB OSS first, awaiting confirmation before returning or updating commit log.
    */
-  public commit(
+  public async commit(
     authorAgent: string,
     changeSummary: string,
     mutation: HydraMutation,
     metadata?: Record<string, any>
-  ): HydraCommit {
-    const timestamp = new Date().toISOString();
-    const commitHash = 'hydra_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 6);
-
-    const commitObj: HydraCommit = {
-      commitHash,
-      parentHash: this.currentHead,
-      timestamp,
-      authorAgent,
-      changeSummary,
-      mutation,
-      metadata,
-    };
-
-    // Trigger authoritative persistence asynchronously
-    this.commitAsync(authorAgent, changeSummary, mutation, metadata).catch((err) => {
-      console.error('Asynchronous HydraDB commit rejected:', err.message);
-    });
-
-    return commitObj;
+  ): Promise<HydraCommit> {
+    return this.commitAsync(authorAgent, changeSummary, mutation, metadata);
   }
 
   /**

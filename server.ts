@@ -261,6 +261,8 @@ Never output structured commercial dossiers, 상황/deal situation templates, or
   // =========================================================================
   if (gateResult.intent === 'COMMERCIAL') {
     const hydraEngine = HydraDBEngine.getInstance();
+    let hydraUnavailable = false;
+    let hydraErrorMessage = '';
     let policyResults: any[] = [];
     try {
       policyResults = await hydraEngine.queryAsync({
@@ -269,6 +271,8 @@ Never output structured commercial dossiers, 상황/deal situation templates, or
         limit: 5,
       });
     } catch (err: any) {
+      hydraUnavailable = true;
+      hydraErrorMessage = err.message || 'Connection failed';
       console.warn('HydraDB OSS policy query unreachable / degraded:', err.message);
     }
 
@@ -278,9 +282,14 @@ Never output structured commercial dossiers, 상황/deal situation templates, or
       properties: r.node.properties,
     }));
 
-    const policyContextStr = commercialPolicyNodes.length > 0
-      ? `\nActive Commercial Governance & Concession Policies from HydraDB:\n${JSON.stringify(commercialPolicyNodes, null, 2)}`
-      : '\nStandard B2B Concession Rules: Discounts >10% require multi-year term or upfront payment. Corporate gross margin floor is 78.0%.';
+    let policyContextStr = '';
+    if (hydraUnavailable) {
+      policyContextStr = `[NOTICE: HydraDB Graph Substrate Unavailable (${hydraErrorMessage}). Live dynamic concession policies could not be loaded from database. Operating under baseline policy: Gross margin floor 78.0%, concessions require give-get trade-offs.]`;
+    } else if (commercialPolicyNodes.length > 0) {
+      policyContextStr = `Active Commercial Governance & Concession Policies from HydraDB (LIVE):\n${JSON.stringify(commercialPolicyNodes, null, 2)}`;
+    } else {
+      policyContextStr = `HydraDB Database Connected: 0 custom concession policy nodes registered. Baseline standard: Gross margin floor 78.0%.`;
+    }
 
     const commercialSystemInstruction = `You are A.C.E (Adaptive Commercial Engine), an experienced, sharp sales strategist sitting right beside the salesperson during a deal.
 You give high-conviction, practical, and conversational advice.
@@ -292,7 +301,7 @@ CRITICAL TONE & STYLE GUIDELINES:
 4. Response length must match the question: simple questions get concise answers; strategic questions get thoughtful reasoning followed by the practical next action.
 5. If suggesting something the salesperson can say to the customer, introduce it naturally (e.g., "You can tell them something like: '...'" or "A good way to frame this is: '...'").
 6. Commercial Principles: Keep Give-Get concession trade-offs front and center (never give a discount without getting something like longer commitment or upfront billing) and protect the 78.0% gross margin floor.
-7. Never expose database terminology, internal metadata, or system mechanics.
+7. Database Transparency: If HydraDB is noted as unavailable, clearly state that dynamic database policies are currently unavailable and you are applying standard commercial guardrails.
 
 Commercial Policies Reference:
 ${policyContextStr}`;
@@ -348,6 +357,8 @@ Put together a two-option proposal for them—Option A with standard 1-year list
   const searchEntities = gateResult.extractedEntities;
   const hydraEngine = HydraDBEngine.getInstance();
 
+  let hydraUnavailable = false;
+  let hydraErrorMessage = '';
   let queryResults: any[] = [];
   try {
     queryResults = await hydraEngine.queryAsync({
@@ -356,7 +367,25 @@ Put together a two-option proposal for them—Option A with standard 1-year list
       limit: 10,
     });
   } catch (err: any) {
+    hydraUnavailable = true;
+    hydraErrorMessage = err.message || 'HydraDB OSS substrate unreachable';
     console.warn('HydraDB OSS context query unreachable / degraded:', err.message);
+  }
+
+  // If HydraDB is unavailable for a graph-dependent request, fail explicitly and distinguish from zero-rows
+  if (hydraUnavailable) {
+    const errorNotice = `⚠️ **HydraDB Graph Substrate Unavailable**: Failed to query graph context for "${searchEntities.join(', ')}" (${hydraErrorMessage}). Live account and relationship history cannot be loaded from the database at this time.`;
+    
+    sendEvent({
+      type: 'status',
+      status: 'degraded',
+      error: `HydraDB Unavailable: ${hydraErrorMessage}`,
+    });
+
+    sendEvent({ type: 'chunk', text: errorNotice });
+    sendEvent({ type: 'done' });
+    res.end();
+    return;
   }
 
   const matchedNodes = queryResults.map(r => r.node);
@@ -370,8 +399,8 @@ Put together a two-option proposal for them—Option A with standard 1-year list
   );
 
   const substrateContextStr = matchedNodes.length > 0
-    ? `\nAccount & Deal Context for Entities [${searchEntities.join(', ')}]:\nEntities:\n${JSON.stringify(matchedNodes, null, 2)}\n\nConnected Relationships:\n${JSON.stringify(matchedEdges, null, 2)}`
-    : `\nNote: No active deal or account records found for "${searchEntities.join(', ')}".`;
+    ? `\nAccount & Deal Context for Entities [${searchEntities.join(', ')}] (HydraDB Authoritative MATCH):\nEntities:\n${JSON.stringify(matchedNodes, null, 2)}\n\nConnected Relationships:\n${JSON.stringify(matchedEdges, null, 2)}`
+    : `\nHydraDB Query Success: Zero records found matching "${searchEntities.join(', ')}".`;
 
   const contextSystemInstruction = `You are A.C.E (Adaptive Commercial Engine), an experienced, sharp sales strategist sitting right beside the salesperson during a live deal.
 You know the account history, stakeholder dynamics, and commercial levers inside out.
@@ -381,7 +410,7 @@ CRITICAL TONE & STYLE GUIDELINES:
 2. NEVER start your response with rigid section headers such as **Situation:**, **Recommendation:**, **Why:**, **Next Move:**, **Suggested Wording:**, **Guardrail:**, or any similar boilerplate labels unless the user explicitly asks for a structured checklist.
 3. Use natural paragraphs and logical flow. Explain the reasoning clearly, then provide the recommended play and tactical action.
 4. If appropriate, weave in an exact phrase or talk track the rep can say to the customer or buyer, introduced naturally (e.g., "Here is how you can position this with them: '...'").
-5. Context Grounding: Use the provided account and deal information to inform your advice accurately.
+5. Context Grounding: Use the provided account and deal information to inform your advice accurately. If zero records were found in the database, clearly let the rep know that this entity is not currently in our database graph.
 6. Invisible Substrate: Never mention "HydraDB", "nodes", "graph queries", "temporal metadata", or internal engine mechanics to the user. Treat the context as your own natural knowledge of the account.
 7. Keep commercial guardrails intact (e.g. preserving the 78.0% gross margin floor, trading concessions for multi-year commitments).
 8. Match response length to the inquiry: answer simple status checks concisely, and provide deeper tactical nuance for complex negotiation questions.

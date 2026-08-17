@@ -116,61 +116,65 @@ export const DealRoom: React.FC<DealRoomProps> = ({ initialDealId, onOpenHydra }
   };
 
   // Commit deal structure to HydraDB Temporal Graph
-  const handleCommitDealToHydra = () => {
+  const handleCommitDealToHydra = async () => {
     const hydra = HydraDBEngine.getInstance();
-    const commit = hydra.commit(
-      'ace-pricing-optimizer',
-      `Commercial Deal Terms Authorized for ${selectedAccount}`,
-      {
-        updatedNodes: [
-          {
-            id: `deal_${selectedAccount.toLowerCase().replace(/\s+/g, '_')}`,
-            type: 'Deal',
-            label: `${selectedAccount} - Commercial Contract (${planTier})`,
-            properties: {
-              targetArr: pricingAnalysis.effectiveArr,
-              seats: seatCount,
-              termMonths: contractTermMonths,
-              discountPct: requestedDiscountPct,
-              grossMarginPct: pricingAnalysis.grossMarginPct,
-              winProbability: pricingAnalysis.winProbabilityPct,
-              paymentTerms,
-              addOns,
-            },
-            tier: 'hot',
-            accessCount: 1,
-            lastAccessed: new Date().toISOString(),
-            commitHash: '',
-            version: 1,
-            validFrom: new Date().toISOString(),
-            tags: ['ActiveContract', 'CommittedDeal', planTier],
-          },
-        ],
-      },
-      { pricingHealthScore: pricingAnalysis.priceHealthScore, paybackMonths: pricingAnalysis.paybackMonths }
-    );
-
-    setCommitSuccessHash(commit.commitHash);
-
-    ACEAgentOrchestrator.getInstance().addLog({
-      agentName: 'A.C.E Commander',
-      action: 'Commercial Contract Terms Committed to HydraDB',
-      status: 'ADAPTED',
-      details: `Authorized $${pricingAnalysis.effectiveArr.toLocaleString()} ARR for ${selectedAccount}. Gross margin locked at ${pricingAnalysis.grossMarginPct}%.`,
-      temporalCommitHash: commit.commitHash,
-    });
-
     try {
-      confetti({
-        particleCount: 75,
-        spread: 60,
-        origin: { y: 0.7 },
-      });
-    } catch (e) {
-      // ignore
-    }
+      const commit = await hydra.commit(
+        'ace-pricing-optimizer',
+        `Commercial Deal Terms Authorized for ${selectedAccount}`,
+        {
+          updatedNodes: [
+            {
+              id: `deal_${selectedAccount.toLowerCase().replace(/\s+/g, '_')}`,
+              type: 'Deal',
+              label: `${selectedAccount} - Commercial Contract (${planTier})`,
+              properties: {
+                targetArr: pricingAnalysis.effectiveArr,
+                seats: seatCount,
+                termMonths: contractTermMonths,
+                discountPct: requestedDiscountPct,
+                grossMarginPct: pricingAnalysis.grossMarginPct,
+                winProbability: pricingAnalysis.winProbabilityPct,
+                paymentTerms,
+                addOns,
+              },
+              tier: 'hot',
+              accessCount: 1,
+              lastAccessed: new Date().toISOString(),
+              commitHash: '',
+              version: 1,
+              validFrom: new Date().toISOString(),
+              tags: ['ActiveContract', 'CommittedDeal', planTier],
+            },
+          ],
+        },
+        { pricingHealthScore: pricingAnalysis.priceHealthScore, paybackMonths: pricingAnalysis.paybackMonths }
+      );
 
-    setTimeout(() => setCommitSuccessHash(null), 8000);
+      setCommitSuccessHash(commit.commitHash);
+
+      ACEAgentOrchestrator.getInstance().addLog({
+        agentName: 'A.C.E Commander',
+        action: 'Commercial Contract Terms Committed to HydraDB',
+        status: 'ADAPTED',
+        details: `Authorized $${pricingAnalysis.effectiveArr.toLocaleString()} ARR for ${selectedAccount}. Gross margin locked at ${pricingAnalysis.grossMarginPct}%.`,
+        temporalCommitHash: commit.commitHash,
+      });
+
+      try {
+        confetti({
+          particleCount: 75,
+          spread: 60,
+          origin: { y: 0.7 },
+        });
+      } catch (e) {
+        // ignore
+      }
+
+      setTimeout(() => setCommitSuccessHash(null), 8000);
+    } catch (err: any) {
+      console.error('HydraDB deal commit error:', err);
+    }
   };
 
   return (
