@@ -1,5 +1,5 @@
 /**
- * A.C.E Dynamic Pricing & Yield Engine
+ * ace Dynamic Pricing & Yield Engine
  * Grounded in HydraDB Context & Concession Policies
  */
 
@@ -64,7 +64,7 @@ export function calculateCommercialPricing(config: DealConfiguration): PricingAn
   const paybackMonths = Math.max(1, Math.round((cacEstimate / (monthlyContributionMargin || 1)) * 10) / 10);
 
   // Query HydraDB for Context Traces & Concession Rules
-  const hydraResults = hydra.query({
+  const hydraResults = hydra.queryCache({
     queryText: `${config.accountName} pricing margin discount competitor concession`,
     limit: 6,
     includeNeighborhood: true,

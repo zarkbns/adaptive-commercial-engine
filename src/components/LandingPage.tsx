@@ -325,7 +325,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                     A
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-xs font-bold text-zinc-900 truncate">Enterprise Client Alpha</div>
+                    <div className="text-xs font-bold text-zinc-900 truncate">Live Account Context</div>
                     <div className="text-[10px] text-zinc-500 truncate">$480k Target ARR</div>
                   </div>
                 </div>

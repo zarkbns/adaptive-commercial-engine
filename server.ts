@@ -159,7 +159,7 @@ app.get('/api/health', async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// A.C.E Copilot Endpoint with Lightweight Intent Gate & Real-Time Token Streaming
+// ace Copilot Endpoint with Lightweight Intent Gate & Real-Time Token Streaming
 // Uses HydraDBEngine (which queries real HydraDB OSS via OpenCypher)
 // ---------------------------------------------------------------------------
 app.post('/api/ace/copilot', async (req, res) => {
@@ -196,7 +196,7 @@ app.post('/api/ace/copilot', async (req, res) => {
   // Greetings, small talk, jokes, acknowledgements. No graph query needed.
   // =========================================================================
   if (gateResult.intent === 'CASUAL') {
-    const casualSystemInstruction = `You are A.C.E (Adaptive Commercial Engine), an intelligent, conversational copilot for sales and commercial deal teams.
+    const casualSystemInstruction = `You are ace (Adaptive Commercial Engine), an intelligent, conversational copilot for sales and commercial deal teams.
 You are natural, friendly, direct, and concise.
 When the user sends a greeting, joke, casual remark, or general non-business question, respond naturally and conversationally in 1-2 friendly sentences.
 Never output structured commercial dossiers, 상황/deal situation templates, or unrequested account data for casual messages.`;
@@ -231,7 +231,7 @@ Never output structured commercial dossiers, 상황/deal situation templates, or
     const clean = prompt.toLowerCase().replace(/[^\w\s]/g, '').trim();
     let casualReply = 'Hey! What can I help you with today?';
     if (clean.includes('who are you') || clean.includes('what can you do') || clean.includes('what do you do')) {
-      casualReply = `I'm A.C.E, your Adaptive Commercial Engine copilot. I help sales teams with negotiation playbooks, deal structure analysis, and Give-Get concession trade-offs. What are you working on?`;
+      casualReply = `I'm ace, your Adaptive Commercial Engine copilot. I help sales teams with negotiation playbooks, deal structure analysis, and Give-Get concession trade-offs. What are you working on?`;
     } else if (clean.includes('joke') || clean.includes('laugh')) {
       casualReply = `Why did the salesperson refuse to negotiate with the coffee machine? Because it demanded payment upfront with zero grace period! What deal are we working on today?`;
     } else if (clean.includes('thanks') || clean.includes('thank you') || clean.includes('thx') || clean.includes('appreciate')) {
@@ -291,7 +291,7 @@ Never output structured commercial dossiers, 상황/deal situation templates, or
       policyContextStr = `HydraDB Database Connected: 0 custom concession policy nodes registered. Baseline standard: Gross margin floor 78.0%.`;
     }
 
-    const commercialSystemInstruction = `You are A.C.E (Adaptive Commercial Engine), an experienced, sharp sales strategist sitting right beside the salesperson during a deal.
+    const commercialSystemInstruction = `You are ace (Adaptive Commercial Engine), an experienced, sharp sales strategist sitting right beside the salesperson during a deal.
 You give high-conviction, practical, and conversational advice.
 
 CRITICAL TONE & STYLE GUIDELINES:
@@ -328,7 +328,7 @@ ${policyContextStr}`;
         res.end();
         return;
       } catch (error: any) {
-        console.error('A.C.E Copilot commercial streaming error:', error);
+        console.error('ace Copilot commercial streaming error:', error);
       }
     }
 
@@ -402,7 +402,7 @@ Put together a two-option proposal for them—Option A with standard 1-year list
     ? `\nAccount & Deal Context for Entities [${searchEntities.join(', ')}] (HydraDB Authoritative MATCH):\nEntities:\n${JSON.stringify(matchedNodes, null, 2)}\n\nConnected Relationships:\n${JSON.stringify(matchedEdges, null, 2)}`
     : `\nHydraDB Query Success: Zero records found matching "${searchEntities.join(', ')}".`;
 
-  const contextSystemInstruction = `You are A.C.E (Adaptive Commercial Engine), an experienced, sharp sales strategist sitting right beside the salesperson during a live deal.
+  const contextSystemInstruction = `You are ace (Adaptive Commercial Engine), an experienced, sharp sales strategist sitting right beside the salesperson during a live deal.
 You know the account history, stakeholder dynamics, and commercial levers inside out.
 
 CRITICAL TONE & STYLE GUIDELINES:
@@ -440,7 +440,7 @@ ${substrateContextStr}`;
       res.end();
       return;
     } catch (error: any) {
-      console.error('A.C.E Copilot context-grounded streaming error:', error);
+      console.error('ace Copilot context-grounded streaming error:', error);
     }
   }
 
@@ -484,7 +484,7 @@ You can frame it directly to the customer:
   res.end();
 });
 
-// A.C.E Deep Deal Room Analyzer Endpoint
+// ace Deep Deal Room Analyzer Endpoint
 app.post('/api/ace/analyze-deal', async (req, res) => {
   const { config, pricingAnalysis } = req.body;
   const ai = getGenAI();
@@ -510,7 +510,7 @@ Provide 3 concise strategic recommendations:
         model: 'gemini-3.7-flash',
         contents: prompt,
         config: {
-          systemInstruction: 'You are A.C.E Deal Room Strategist. Deliver concise, high-impact deal negotiation tactics in Markdown format.',
+          systemInstruction: 'You are ace Deal Room Strategist. Deliver concise, high-impact deal negotiation tactics in Markdown format.',
           temperature: 0.6,
         },
       });
@@ -523,7 +523,7 @@ Provide 3 concise strategic recommendations:
 
   const accountName = config?.accountName || 'Enterprise Account';
   return res.json({
-    analysis: `### A.C.E Autonomous Deal Strategy Dossier for ${accountName}
+    analysis: `### ace Autonomous Deal Strategy Dossier for ${accountName}
 
 1. **Concession Give-Get Strategy**:
    - **Trade-Off**: Grant maximum 12% discount in exchange for **Annual Advance Billing** and **Q3 Case Study commitment**.
@@ -556,7 +556,7 @@ async function startServer() {
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`A.C.E Engine Server running on http://0.0.0.0:${PORT}`);
+    console.log(`ace Engine Server running on http://0.0.0.0:${PORT}`);
   });
 }
 

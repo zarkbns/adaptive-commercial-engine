@@ -1,5 +1,5 @@
 /**
- * A.C.E Multi-Agent Orchestrator
+ * ace Multi-Agent Orchestrator
  * Coordinates autonomous commercial agents and records execution telemetry
  */
 

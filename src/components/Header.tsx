@@ -33,7 +33,7 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <span className="text-lg font-bold tracking-tight text-white">A.C.E</span>
+              <span className="text-lg font-bold tracking-tight text-white">ace</span>
               <span className="rounded-full bg-cyan-950/80 px-2 py-0.5 text-[10px] font-semibold text-cyan-400 border border-cyan-800/60">
                 v2.4 Core
               </span>
@@ -138,7 +138,7 @@ export const Header: React.FC<HeaderProps> = ({
             className="flex items-center space-x-2 rounded-xl bg-gradient-to-r from-indigo-600 via-cyan-600 to-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-md shadow-indigo-600/20 transition-all hover:scale-[1.02] active:scale-[0.98] border border-cyan-400/30"
           >
             <HugeiconsIcon icon={SparklesIcon} className="h-3.5 w-3.5 text-amber-300 animate-spin" />
-            <span>A.C.E Copilot</span>
+            <span>ace Copilot</span>
           </button>
         </div>
       </div>

@@ -568,13 +568,6 @@ export class HydraDBEngine {
   }
 
   /**
-   * Alias for queryCache for backwards compatibility
-   */
-  public query(options: HydraQueryOptions): HydraQueryResult[] {
-    return this.queryCache(options);
-  }
-
-  /**
    * 4. Retrieve Graph Nodes and Edges directly from HydraDB OSS via OpenCypher
    * Updates read cache ONLY on successful response.
    */

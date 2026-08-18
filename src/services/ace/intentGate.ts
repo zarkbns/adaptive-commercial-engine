@@ -1,5 +1,5 @@
 /**
- * A.C.E Lightweight Intent Gate
+ * ace Lightweight Intent Gate
  * 
  * Classifies user copilot messages into three discrete operational intents:
  * - CASUAL: Greetings, small talk, jokes, acknowledgements, normal non-business conversation.

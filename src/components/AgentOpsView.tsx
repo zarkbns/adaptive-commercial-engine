@@ -23,7 +23,7 @@ export const AgentOpsView: React.FC<AgentOpsViewProps> = ({ logs }) => {
 
   const agents = [
     {
-      name: 'A.C.E Commander',
+      name: 'ace Commander',
       role: 'Master Strategy Orchestration',
       status: 'Active Loop',
       icon: FlashIcon,
@@ -145,7 +145,7 @@ export const AgentOpsView: React.FC<AgentOpsViewProps> = ({ logs }) => {
           {/* Filter Agent Selector */}
           <div className="flex items-center space-x-1.5 overflow-x-auto text-xs">
             <span className="text-zinc-400 font-medium mr-1">Filter:</span>
-            {['ALL', 'A.C.E Commander', 'Hydra Memory Agent', 'Pricing & Yield Optimizer', 'Deal Risk Sentry', 'Lead Prospector'].map((a) => (
+            {['ALL', 'ace Commander', 'Hydra Memory Agent', 'Pricing & Yield Optimizer', 'Deal Risk Sentry', 'Lead Prospector'].map((a) => (
               <button
                 key={a}
                 onClick={() => setSelectedAgent(a)}
@@ -155,7 +155,7 @@ export const AgentOpsView: React.FC<AgentOpsViewProps> = ({ logs }) => {
                     : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
                 }`}
               >
-                {a.replace('A.C.E ', '')}
+                {a.replace('ace ', '')}
               </button>
             ))}
           </div>

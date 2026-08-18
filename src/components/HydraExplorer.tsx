@@ -81,7 +81,7 @@ export const HydraExplorer: React.FC<HydraExplorerProps> = ({
   // Vector search handler
   const handleExecuteSearch = () => {
     if (!searchQuery.trim()) return;
-    const results = hydra.query({
+    const results = hydra.queryCache({
       queryText: searchQuery,
       limit: 10,
       includeNeighborhood: true,

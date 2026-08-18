@@ -36,7 +36,7 @@ export const AIChatView: React.FC<AIChatViewProps> = ({ onSelectAccount, onOpenD
     {
       id: 'm1',
       sender: 'assistant',
-      text: `Hello! I'm your **A.C.E Copilot**. How can I help you with your commercial strategy, deal structures, or negotiation talk tracks today?`,
+      text: `Hello! I'm your **ace Copilot**. How can I help you with your commercial strategy, deal structures, or negotiation talk tracks today?`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     },
   ]);
@@ -237,7 +237,7 @@ That protects our 78% corporate gross margin floor and sets a strong baseline fo
             <HugeiconsIcon icon={SparklesIcon} className="h-4 w-4" />
           </div>
           <div>
-            <h2 className="text-sm font-semibold text-zinc-900 tracking-tight">A.C.E Strategy Copilot</h2>
+            <h2 className="text-sm font-semibold text-zinc-900 tracking-tight">ace Strategy Copilot</h2>
             <p className="text-[11px] text-zinc-400 font-medium">Real-time commercial intelligence & margin guardrails</p>
           </div>
         </div>
@@ -304,7 +304,7 @@ That protects our 78% corporate gross margin floor and sets a strong baseline fo
             </div>
             <div className="rounded-2xl bg-zinc-50 border border-zinc-200/70 px-4 py-2.5 text-xs text-zinc-500 flex items-center space-x-2">
               <span className="w-2 h-2 rounded-full bg-zinc-400 animate-pulse" />
-              <span className="italic font-medium">A.C.E is thinking...</span>
+              <span className="italic font-medium">ace is thinking...</span>
             </div>
           </div>
         )}
@@ -337,7 +337,7 @@ That protects our 78% corporate gross margin floor and sets a strong baseline fo
             <input
               id="input-copilot-center"
               type="text"
-              placeholder="Ask A.C.E about deal structures, concession boundaries, or talk tracks..."
+              placeholder="Ask ace about deal structures, concession boundaries, or talk tracks..."
               value={inputPrompt}
               onChange={(e) => setInputPrompt(e.target.value)}
               onKeyDown={(e) => {

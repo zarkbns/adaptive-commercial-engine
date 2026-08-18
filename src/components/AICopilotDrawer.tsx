@@ -34,7 +34,7 @@ export const AICopilotDrawer: React.FC<AICopilotDrawerProps> = ({ isOpen, onClos
     {
       id: 'm1',
       sender: 'assistant',
-      text: `Hello! I'm your **A.C.E Copilot**. How can I help you with your commercial strategy, deal structures, or negotiation talk tracks today?`,
+      text: `Hello! I'm your **ace Copilot**. How can I help you with your commercial strategy, deal structures, or negotiation talk tracks today?`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     },
   ]);
@@ -226,7 +226,7 @@ That protects our 78% corporate gross margin floor and sets a strong baseline fo
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <span className="text-sm font-bold text-zinc-900">A.C.E Strategy Copilot</span>
+                <span className="text-sm font-bold text-zinc-900">ace Strategy Copilot</span>
                 <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[9px] font-mono text-zinc-700 border border-zinc-200">
                   Streaming
                 </span>
@@ -294,7 +294,7 @@ That protects our 78% corporate gross margin floor and sets a strong baseline fo
               </div>
               <div className="flex items-center space-x-2.5 rounded-2xl bg-zinc-50 border border-zinc-200/80 px-4 py-3 text-xs text-zinc-600 shadow-2xs rounded-bl-xs">
                 <span className="h-1.5 w-1.5 rounded-full bg-zinc-400 animate-pulse" />
-                <span className="text-zinc-500 text-xs font-medium italic">A.C.E is thinking...</span>
+                <span className="text-zinc-500 text-xs font-medium italic">ace is thinking...</span>
               </div>
             </div>
           )}
