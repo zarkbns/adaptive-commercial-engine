@@ -1,797 +1,740 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
-  Search01Icon,
-  SlidersHorizontalIcon,
-  Location01Icon,
-  Calendar01Icon,
-  Link01Icon,
-  Settings01Icon,
-  PlusSignIcon,
-  Mail01Icon,
-  StarIcon,
-  Clock01Icon,
-  Navigation01Icon,
-  File01Icon,
-  UserIcon,
-  ArrowUpRight01Icon,
-  Briefcase01Icon,
-  Mic01Icon,
-  ArrowUp01Icon,
   Layout01Icon,
-  FlashIcon,
-  Building01Icon,
-  SparklesIcon,
-  Database01Icon,
   UserGroup02Icon,
-  BotIcon,
-  CheckmarkCircle02Icon,
+  StarIcon,
   TradeUpIcon,
+  Megaphone01Icon,
+  Briefcase01Icon,
+  File01Icon,
+  Calendar01Icon,
+  Analytics01Icon,
+  Settings01Icon,
+  Search01Icon,
+  PlusSignIcon,
+  SparklesIcon,
+  ArrowUp01Icon,
+  CheckmarkCircle02Icon,
+  Mail01Icon,
+  CallIcon,
+  Clock01Icon,
+  ArrowUpRight01Icon,
+  Menu01Icon,
+  Cancel01Icon,
   Logout01Icon,
+  UserIcon,
 } from '@hugeicons/core-free-icons';
-import { HydraTierMetrics } from '../services/hydradb/types';
-import { AgentExecutionLog } from '../services/ace/types';
 import { UserSession } from '../services/authService';
-import { CommandCenter } from './CommandCenter';
-import { DealRoom } from './DealRoom';
-import { AccountIntelligenceView } from './AccountIntelligenceView';
-import { HydraExplorer } from './HydraExplorer';
-import { AgentOpsView } from './AgentOpsView';
+import { consumerStore, Consumer, Deal, TaskItem } from '../services/consumerService';
+import { OverviewView } from './views/OverviewView';
+import { ConsumersView } from './views/ConsumersView';
+import { LeadsView } from './views/LeadsView';
+import { EngagementView } from './views/EngagementView';
+import { CampaignsView } from './views/CampaignsView';
+import { DealsView } from './views/DealsView';
+import { TasksView } from './views/TasksView';
+import { CalendarView } from './views/CalendarView';
+import { ReportsView } from './views/ReportsView';
+import { SettingsView } from './views/SettingsView';
 import { AICopilotDrawer } from './AICopilotDrawer';
-import { HydraDBEngine } from '../services/hydradb/engine';
-import { getAccountIntelligenceList } from '../services/ace/prospectorEngine';
-import { ACEAgentOrchestrator } from '../services/ace/agentOrchestrator';
+import { AddConsumerModal } from './AddConsumerModal';
+
+export type NavItemKey =
+  | 'overview'
+  | 'consumers'
+  | 'leads'
+  | 'engagement'
+  | 'campaigns'
+  | 'deals'
+  | 'tasks'
+  | 'calendar'
+  | 'reports'
+  | 'settings';
 
 interface MainLayoutProps {
-  metrics?: HydraTierMetrics;
-  logs?: AgentExecutionLog[];
-  onRefreshMetrics?: () => void;
   onBackToLanding?: () => void;
   onSignOut?: () => void;
   session?: UserSession;
 }
 
-type NavTab = 'command-center' | 'deal-room' | 'accounts' | 'hydra-explorer' | 'agent-ops';
-
 export const MainLayout: React.FC<MainLayoutProps> = ({
-  metrics = { hotNodesCount: 12, warmNodesCount: 48, coldNodesCount: 150, avgLatencyMs: 1.8, cacheHitRatio: 98.4, totalQueriesServed: 1240 },
-  logs = [],
-  onRefreshMetrics = () => {},
   onBackToLanding,
   onSignOut,
   session,
 }) => {
-  // Navigation & interaction states
-  const [activeNav, setActiveNav] = useState<NavTab>('command-center');
-  const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
-  const [selectedAccountId, setSelectedAccountId] = useState<string>('acc_apex_logistics');
+  // Navigation State (Exclusively 10 items)
+  const [activeNav, setActiveNav] = useState<NavItemKey>('overview');
+
+  // Mobile / Tablet Drawer states
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  const [isRightContextOpenMobile, setIsRightContextOpenMobile] = useState(false);
+
+  // Store data state
+  const [consumers, setConsumers] = useState<Consumer[]>(() => consumerStore.getConsumers());
+  const [deals, setDeals] = useState<Deal[]>(() => consumerStore.getDeals());
+  const [tasks, setTasks] = useState<TaskItem[]>(() => consumerStore.getTasks());
+  const [selectedConsumerId, setSelectedConsumerId] = useState<string | null>('c1');
+
+  // Search & bottom input dock
+  const [globalSearch, setGlobalSearch] = useState('');
+  const [assistantInput, setAssistantInput] = useState('');
+
+  // Assistant & modal controls
   const [isCopilotOpen, setIsCopilotOpen] = useState(false);
+  const [copilotInitialPrompt, setCopilotInitialPrompt] = useState<string | undefined>(undefined);
+  const [isAddConsumerOpen, setIsAddConsumerOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
 
-  // Search & bottom input dock states
-  const [searchQuery, setSearchQuery] = useState('');
-  const [inputValue, setInputValue] = useState('');
-
-  // Right sidebar interactive toggle states
-  const [marginFloorToggle, setMarginFloorToggle] = useState(true);
-  const [giveGetToggle, setGiveGetToggle] = useState(true);
-  const [actionSuccessMsg, setActionSuccessMsg] = useState<string | null>(null);
-
-  // Dynamic context retrieval from HydraDB & prospector engine
-  const accounts = useMemo(() => getAccountIntelligenceList(), []);
-  
-  const hydraSnapshot = useMemo(() => {
-    try {
-      return HydraDBEngine.getInstance().getGraphSnapshot();
-    } catch {
-      return { nodes: [], edges: [] };
-    }
-  }, [metrics]);
-
-  const activeAccount = useMemo(() => {
-    const found = accounts.find((a) => a.id === selectedAccountId);
-    if (found) return found;
-    return accounts[0] || null;
-  }, [accounts, selectedAccountId]);
-
-  // Feed items derived dynamically from HydraDB nodes and relations
-  const feedItems = useMemo(() => {
-    const items: any[] = [];
-    const nodes = hydraSnapshot.nodes || [];
-
-    // 1. Account nodes
-    const accountNodes = nodes.filter((n) => n.type === 'Account');
-    accountNodes.forEach((acc, index) => {
-      items.push({
-        id: acc.id,
-        type: 'featured_account',
-        title: acc.label,
-        subtitle: `${acc.properties?.industry || 'Enterprise'} • $${((acc.properties?.targetArr || 400000) / 1000).toFixed(0)}k ARR`,
-        time: acc.properties?.currentStage || 'Active Deal',
-        badge: `${acc.properties?.dealHealthScore || acc.properties?.intentScore || 90}% Intent`,
-        tag: acc.tags?.[0] || 'Enterprise Tier',
-        isFeatured: index === 0,
-      });
+  // Subscribe to data changes
+  useEffect(() => {
+    const unsub = consumerStore.subscribe(() => {
+      setConsumers(consumerStore.getConsumers());
+      setDeals(consumerStore.getDeals());
+      setTasks(consumerStore.getTasks());
     });
+    return unsub;
+  }, []);
 
-    // 2. Contact / Champion nodes
-    const contactNodes = nodes.filter((n) => n.type === 'Contact');
-    contactNodes.forEach((c) => {
-      items.push({
-        id: c.id,
-        type: 'contact',
-        title: `${c.label} • ${c.properties?.role || 'Stakeholder'}`,
-        subtitle: `${c.properties?.sentiment || 'Neutral'} Sentiment • Influence ${c.properties?.influenceScore || 0.8}`,
-        time: 'Active Contact',
-        badge: c.properties?.role?.includes('Champion') ? 'Champion' : 'Stakeholder',
-        tag: 'Buying Committee',
-        isFeatured: false,
-      });
-    });
+  // Selected consumer details for right context panel
+  const selectedConsumer = useMemo(() => {
+    if (!selectedConsumerId) return consumers[0] || null;
+    return consumers.find((c) => c.id === selectedConsumerId) || consumers[0] || null;
+  }, [consumers, selectedConsumerId]);
 
-    // 3. BuyingSignal nodes
-    const signalNodes = nodes.filter((n) => n.type === 'BuyingSignal');
-    signalNodes.forEach((s) => {
-      items.push({
-        id: s.id,
-        type: 'signal',
-        title: s.label,
-        subtitle: `Confidence: ${((s.properties?.confidence || 0.9) * 100).toFixed(0)}%`,
-        time: 'Signal',
-        badge: 'High Intent',
-        tag: s.tags?.[0] || 'Buying Signal',
-        isFeatured: false,
-      });
-    });
-
-    // 4. Deal nodes
-    const dealNodes = nodes.filter((n) => n.type === 'Deal');
-    dealNodes.forEach((d) => {
-      items.push({
-        id: d.id,
-        type: 'deal',
-        title: d.label,
-        subtitle: `Target ARR: $${((d.properties?.targetArr || 0) / 1000).toFixed(0)}k • Margin ${d.properties?.grossMarginExpectedPct || 82}%`,
-        time: 'Contract',
-        badge: 'In Review',
-        tag: 'Deal Term',
-        isFeatured: false,
-      });
-    });
-
-    // 5. ConcessionRule / PricingConstraint nodes
-    const ruleNodes = nodes.filter((n) => n.type === 'ConcessionRule' || n.type === 'PricingConstraint');
-    ruleNodes.forEach((r) => {
-      items.push({
-        id: r.id,
-        type: 'rule',
-        title: r.label,
-        subtitle: r.properties?.rule || 'Gross margin floor enforced at 78.0%',
-        time: 'Live Policy',
-        badge: '78% Floor',
-        tag: 'Pricing Policy',
-        isFeatured: false,
-      });
-    });
-
-    return items.filter((item) => {
-      if (!searchQuery.trim()) return true;
-      const q = searchQuery.toLowerCase();
-      return (
-        item.title.toLowerCase().includes(q) ||
-        item.subtitle.toLowerCase().includes(q) ||
-        item.tag.toLowerCase().includes(q)
-      );
-    });
-  }, [hydraSnapshot, searchQuery]);
-
-  const handleSelectFeedItem = (item: any) => {
-    if (item.type === 'featured_account' || item.id.startsWith('acc_')) {
-      setSelectedAccountId(item.id);
-      setActiveNav('accounts');
-    } else if (item.type === 'deal') {
-      setSelectedDealId(item.id);
-      setActiveNav('deal-room');
-    } else if (item.type === 'contact') {
-      setActiveNav('accounts');
-    } else if (item.type === 'rule' || item.type === 'signal') {
-      setActiveNav('command-center');
-    }
-  };
-
-  const handleBottomInputSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inputValue.trim()) return;
+  // Handle opening assistant with custom prompt
+  const handleOpenAssistant = (promptText?: string) => {
+    setCopilotInitialPrompt(promptText);
     setIsCopilotOpen(true);
-    setInputValue('');
   };
 
-  const handleExecuteNBAAction = () => {
-    if (!activeAccount) return;
-    ACEAgentOrchestrator.getInstance().addLog({
-      agentName: 'ace Commander',
-      action: `Executed NBA: ${activeAccount.nextBestAction.action}`,
-      status: 'SUCCESS',
-      details: `Dispatched via ${activeAccount.nextBestAction.suggestedChannel} for ${activeAccount.name}.`,
-    });
-    setActionSuccessMsg('Action executed successfully.');
-    setTimeout(() => setActionSuccessMsg(null), 4000);
+  // Handle bottom dock input submission
+  const handleAssistantSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!assistantInput.trim()) return;
+    handleOpenAssistant(assistantInput.trim());
+    setAssistantInput('');
   };
+
+  // 10 Left Navigation Items (clean & non-technical)
+  const navItems = [
+    { key: 'overview' as NavItemKey, label: 'Overview', icon: Layout01Icon },
+    { key: 'consumers' as NavItemKey, label: 'Consumers', icon: UserGroup02Icon },
+    { key: 'leads' as NavItemKey, label: 'Leads', icon: StarIcon },
+    { key: 'engagement' as NavItemKey, label: 'Engagement', icon: TradeUpIcon },
+    { key: 'campaigns' as NavItemKey, label: 'Campaigns', icon: Megaphone01Icon },
+    { key: 'deals' as NavItemKey, label: 'Deals', icon: Briefcase01Icon },
+    { key: 'tasks' as NavItemKey, label: 'Tasks', icon: File01Icon },
+    { key: 'calendar' as NavItemKey, label: 'Calendar', icon: Calendar01Icon },
+    { key: 'reports' as NavItemKey, label: 'Reports', icon: Analytics01Icon },
+    { key: 'settings' as NavItemKey, label: 'Settings', icon: Settings01Icon },
+  ];
 
   return (
-    <div className="min-h-screen bg-[#f4f5f8] text-zinc-900 font-sans antialiased p-3 sm:p-5 lg:p-6 flex flex-col justify-between selection:bg-zinc-200">
-      {/* 1. TOP BAR */}
-      <header className="w-full mb-4 flex items-center justify-between gap-4">
-        {/* Left Side: ace Logo Box + Search Bar Pill */}
-        <div className="flex items-center gap-3 sm:gap-4 flex-1 max-w-xl">
-          {/* Top Left Brand Box: Exact ace Logo Asset (FlashIcon in Squircle) */}
+    <div className="min-h-screen bg-[#f4f5f8] text-zinc-900 font-sans antialiased flex flex-col selection:bg-zinc-200 overflow-x-hidden">
+      {/* ==================================================================== */}
+      {/* 1. TOP HEADER BAR (Logo 180px, Search, Quick Actions)               */}
+      {/* ==================================================================== */}
+      <header className="w-full bg-white border-b border-zinc-200/80 px-4 sm:px-6 py-2.5 flex items-center justify-between gap-4 sticky top-0 z-30 shadow-2xs">
+        {/* Left: Mobile hamburger & 180px Logo */}
+        <div className="flex items-center space-x-3">
           <button
             type="button"
-            onClick={onBackToLanding}
-            title="ace Commercial Engine • Return to Overview"
-            className="w-11 h-11 rounded-2xl bg-zinc-900 text-white flex items-center justify-center shadow-xs hover:bg-black transition-all cursor-pointer shrink-0 active:scale-95 group"
+            onClick={() => setIsMobileNavOpen(!isMobileNavOpen)}
+            className="lg:hidden p-2 rounded-xl text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 transition-colors cursor-pointer"
+            aria-label="Toggle navigation menu"
           >
-            <HugeiconsIcon icon={FlashIcon} className="h-5 w-5 fill-current text-white transition-transform group-hover:scale-110" />
+            <HugeiconsIcon icon={Menu01Icon} className="h-5 w-5" />
           </button>
 
-          {/* Search Bar Pill with Filter Toggle */}
-          <div className="flex-1 h-11 bg-white rounded-full border border-zinc-200/80 px-4 flex items-center justify-between shadow-xs">
-            <div className="flex items-center space-x-2.5 flex-1">
-              <HugeiconsIcon icon={Search01Icon} className="h-4 w-4 text-zinc-400 shrink-0" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search accounts, deals, or signals..."
-                className="w-full bg-transparent text-xs text-zinc-800 focus:outline-none placeholder:text-zinc-400"
-              />
-              {!searchQuery && (
-                <div className="hidden sm:block h-2 w-20 bg-zinc-100 rounded-full shrink-0 pointer-events-none" />
-              )}
-            </div>
-            <button
-              type="button"
-              title="Filter"
-              className="text-zinc-400 hover:text-zinc-700 transition-colors cursor-pointer shrink-0 ml-2"
-            >
-              <HugeiconsIcon icon={SlidersHorizontalIcon} className="h-4 w-4" />
-            </button>
+          {/* 180px Logo as requested by user */}
+          <button
+            type="button"
+            onClick={() => setActiveNav('overview')}
+            className="flex items-center focus:outline-none cursor-pointer group"
+            title="ace • Sales Workspace"
+          >
+            <img
+              src="https://i.ibb.co/gLHGDBz0/1001308108-removebg-preview.png"
+              alt="ace"
+              className="w-[180px] h-auto object-contain transition-opacity group-hover:opacity-90"
+              style={{ width: '180px' }}
+            />
+          </button>
+        </div>
+
+        {/* Center: Search Bar */}
+        <div className="hidden sm:flex flex-1 max-w-md mx-4">
+          <div className="w-full h-10 bg-zinc-50 hover:bg-white focus-within:bg-white rounded-full border border-zinc-200 px-4 flex items-center space-x-2.5 transition-all focus-within:border-[#966035] focus-within:ring-1 focus-within:ring-[#966035]/20 shadow-2xs">
+            <HugeiconsIcon icon={Search01Icon} className="h-4 w-4 text-zinc-400 shrink-0" />
+            <input
+              type="text"
+              value={globalSearch}
+              onChange={(e) => setGlobalSearch(e.target.value)}
+              placeholder="Search consumers, deals, or tasks..."
+              className="w-full bg-transparent text-xs text-zinc-800 focus:outline-none placeholder:text-zinc-400"
+            />
           </div>
         </div>
 
-        {/* Right Side: Copilot Action Button */}
-        <div className="flex items-center space-x-2 sm:space-x-3 shrink-0">
+        {/* Right Actions: Add Consumer, Ask ACE, Right Panel Toggle on Mobile, User Profile */}
+        <div className="flex items-center space-x-2 sm:space-x-3">
           <button
             type="button"
-            id="btn-open-copilot-top"
-            onClick={() => setIsCopilotOpen(true)}
-            title="Open Copilot"
-            className="h-10 px-4 rounded-full bg-black text-white flex items-center space-x-2 hover:bg-zinc-800 transition-all shadow-xs cursor-pointer active:scale-95 shrink-0"
+            onClick={() => setIsAddConsumerOpen(true)}
+            className="inline-flex items-center space-x-1.5 px-3.5 sm:px-4 py-2 rounded-full bg-[#966035] hover:bg-[#83532c] text-white text-xs font-bold shadow-xs transition-all cursor-pointer active:scale-95 shrink-0"
           >
-            <HugeiconsIcon icon={SparklesIcon} className="h-4 w-4 text-white animate-pulse" />
-            <span className="text-xs font-semibold tracking-tight hidden sm:inline">Copilot</span>
+            <HugeiconsIcon icon={PlusSignIcon} className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Add Consumer</span>
+            <span className="sm:hidden">Add</span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => handleOpenAssistant()}
+            className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-full bg-[#f7f4ee] hover:bg-[#ede4d8] text-[#7a4d29] border border-[#e6ded3] text-xs font-bold shadow-2xs transition-all cursor-pointer active:scale-95 shrink-0"
+          >
+            <HugeiconsIcon icon={SparklesIcon} className="h-3.5 w-3.5 text-[#966035]" />
+            <span className="hidden md:inline">Ask ACE</span>
+          </button>
+
+          {/* Context toggle for mobile/tablet */}
+          <button
+            type="button"
+            onClick={() => setIsRightContextOpenMobile(!isRightContextOpenMobile)}
+            className="xl:hidden p-2 rounded-full text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 transition-colors cursor-pointer border border-zinc-200"
+            title="Toggle context details"
+          >
+            <HugeiconsIcon icon={Layout01Icon} className="h-4 w-4" />
+          </button>
+
+          {/* User Profile Menu */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+              className="w-9 h-9 rounded-full bg-zinc-900 text-white flex items-center justify-center text-xs font-bold hover:bg-black transition-colors shadow-xs cursor-pointer"
+              title="User Account"
+            >
+              {session?.avatar || (session?.name ? session.name[0] : 'A')}
+            </button>
+
+            {isProfileMenuOpen && (
+              <div className="absolute right-0 mt-2 z-50 w-56 rounded-2xl bg-white border border-zinc-200 shadow-xl p-3 space-y-2.5 animate-fadeIn">
+                <div className="flex items-center space-x-2.5 pb-2 border-b border-zinc-100">
+                  <div className="w-8 h-8 rounded-full bg-[#966035] text-white flex items-center justify-center text-xs font-bold shrink-0">
+                    {session?.avatar || (session?.name ? session.name[0] : 'A')}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-bold text-zinc-900 truncate">
+                      {session?.name || 'Alex Morgan'}
+                    </div>
+                    <div className="text-[10px] text-zinc-500 truncate">
+                      {session?.role || 'Senior Sales Representative'}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveNav('settings');
+                      setIsProfileMenuOpen(false);
+                    }}
+                    className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-zinc-700 hover:bg-zinc-100 transition-colors flex items-center gap-2"
+                  >
+                    <HugeiconsIcon icon={Settings01Icon} className="h-3.5 w-3.5 text-zinc-500" />
+                    <span>Settings</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsProfileMenuOpen(false);
+                      if (onBackToLanding) onBackToLanding();
+                    }}
+                    className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-zinc-700 hover:bg-zinc-100 transition-colors flex items-center gap-2"
+                  >
+                    <HugeiconsIcon icon={Layout01Icon} className="h-3.5 w-3.5 text-zinc-500" />
+                    <span>Public Landing Page</span>
+                  </button>
+
+                  {onSignOut && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsProfileMenuOpen(false);
+                        onSignOut();
+                      }}
+                      className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-rose-600 hover:bg-rose-50 transition-colors flex items-center gap-2 border-t border-zinc-100 pt-2 mt-1 font-semibold"
+                    >
+                      <HugeiconsIcon icon={Logout01Icon} className="h-3.5 w-3.5 text-rose-500" />
+                      <span>Sign Out</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
-      {/* 2. THREE-COLUMN WORKSPACE LAYOUT */}
-      <div className="flex-1 flex gap-4 lg:gap-5 w-full items-stretch overflow-hidden">
-        {/* ==================================================================== */}
-        {/* COLUMN 1: LEFT SIDEBAR (Navigation Rail + Feed Sub-list)             */}
-        {/* ==================================================================== */}
-        <div className="flex gap-3 sm:gap-4 shrink-0">
-          {/* Narrow Navigation Rail */}
-          <aside className="w-12 sm:w-14 shrink-0 flex flex-col items-center justify-between py-1 bg-transparent">
-            {/* Top Navigation Stack */}
-            <div className="flex flex-col items-center space-y-3.5 w-full">
-              {/* 1. Overview */}
+      {/* ==================================================================== */}
+      {/* 2. THREE-PANEL DESKTOP LAYOUT                                        */}
+      {/* Left: 220–240px | Middle: flexible workspace | Right: 300–340px      */}
+      {/* ==================================================================== */}
+      <div className="flex-1 flex w-full max-w-[1720px] mx-auto p-3 sm:p-4 lg:p-5 gap-4 lg:gap-5 overflow-hidden">
+        {/* ================================================================== */}
+        {/* PANEL 1: LEFT NAVIGATION (220–240px)                               */}
+        {/* ================================================================== */}
+        <aside
+          className={`
+            fixed inset-y-0 left-0 z-40 lg:static lg:z-auto
+            w-[230px] shrink-0 bg-white lg:bg-white rounded-r-3xl lg:rounded-3xl border-r lg:border border-zinc-200/80
+            p-4 flex flex-col justify-between shadow-sm lg:shadow-xs transition-transform duration-200
+            ${isMobileNavOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+          `}
+        >
+          <div className="space-y-4">
+            {/* Mobile Header in Drawer */}
+            <div className="lg:hidden flex items-center justify-between pb-3 border-b border-zinc-100">
+              <img
+                src="https://i.ibb.co/gLHGDBz0/1001308108-removebg-preview.png"
+                alt="ace"
+                className="w-[140px] h-auto object-contain"
+              />
               <button
                 type="button"
-                id="nav-commercial-pulse"
-                onClick={() => setActiveNav('command-center')}
-                title="Overview"
-                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all cursor-pointer ${
-                  activeNav === 'command-center'
-                    ? 'bg-black text-white shadow-xs'
-                    : 'bg-white text-zinc-500 hover:text-zinc-900 border border-zinc-200/80 hover:bg-zinc-50'
-                }`}
+                onClick={() => setIsMobileNavOpen(false)}
+                className="p-1 rounded-full text-zinc-400 hover:text-zinc-700"
               >
-                <HugeiconsIcon icon={Mail01Icon} className="h-4 w-4" />
-              </button>
-
-              {/* 2. Deals */}
-              <button
-                type="button"
-                id="nav-deal-room-rail"
-                onClick={() => setActiveNav('deal-room')}
-                title="Deals"
-                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all cursor-pointer ${
-                  activeNav === 'deal-room'
-                    ? 'bg-black text-white shadow-xs'
-                    : 'bg-white text-zinc-500 hover:text-zinc-900 border border-zinc-200/80 hover:bg-zinc-50'
-                }`}
-              >
-                <HugeiconsIcon icon={StarIcon} className="h-4 w-4" />
-              </button>
-
-              {/* 3. Accounts */}
-              <button
-                type="button"
-                id="nav-buying-centers-rail"
-                onClick={() => setActiveNav('accounts')}
-                title="Accounts & Stakeholders"
-                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all cursor-pointer ${
-                  activeNav === 'accounts'
-                    ? 'bg-black text-white shadow-xs'
-                    : 'bg-white text-zinc-500 hover:text-zinc-900 border border-zinc-200/80 hover:bg-zinc-50'
-                }`}
-              >
-                <HugeiconsIcon icon={Navigation01Icon} className="h-4 w-4 transform rotate-45" />
-              </button>
-
-              {/* 4. Data Graph */}
-              <button
-                type="button"
-                id="nav-hydradb-rail"
-                onClick={() => setActiveNav('hydra-explorer')}
-                title="Data Graph"
-                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all cursor-pointer ${
-                  activeNav === 'hydra-explorer'
-                    ? 'bg-black text-white shadow-xs'
-                    : 'bg-white text-zinc-500 hover:text-zinc-900 border border-zinc-200/80 hover:bg-zinc-50'
-                }`}
-              >
-                <HugeiconsIcon icon={Clock01Icon} className="h-4 w-4" />
-              </button>
-
-              {/* 5. Activity */}
-              <button
-                type="button"
-                id="nav-agentops-rail"
-                onClick={() => setActiveNav('agent-ops')}
-                title="Activity"
-                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all cursor-pointer ${
-                  activeNav === 'agent-ops'
-                    ? 'bg-black text-white shadow-xs'
-                    : 'bg-white text-zinc-500 hover:text-zinc-900 border border-zinc-200/80 hover:bg-zinc-50'
-                }`}
-              >
-                <HugeiconsIcon icon={File01Icon} className="h-4 w-4" />
+                <HugeiconsIcon icon={Cancel01Icon} className="h-5 w-5" />
               </button>
             </div>
 
-            {/* Bottom Profile Button with Dropdown Menu */}
-            <div className="w-full flex justify-center pt-4 relative">
-              <button
-                type="button"
-                onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-                title="User & Operator Profile"
-                className="w-10 h-10 rounded-full bg-white border border-zinc-200/80 flex items-center justify-center text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50 transition-colors shadow-xs cursor-pointer"
-              >
-                <HugeiconsIcon icon={UserIcon} className="h-4 w-4" />
-              </button>
-
-              {/* User Profile Popover */}
-              {isProfileMenuOpen && (
-                <div className="absolute left-14 bottom-0 z-50 w-56 rounded-2xl bg-white border border-zinc-200 shadow-xl p-3 space-y-2.5 animate-fadeIn">
-                  <div className="flex items-center space-x-2.5 pb-2 border-b border-zinc-100">
-                    <div className="w-8 h-8 rounded-full bg-zinc-900 text-white flex items-center justify-center text-xs font-bold shrink-0">
-                      {session?.avatar || 'CO'}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs font-bold text-zinc-900 truncate">
-                        {session?.name || 'Commercial Operator'}
-                      </div>
-                      <div className="text-[10px] text-zinc-500 truncate">
-                        {session?.role || 'RevOps Director'}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActiveNav('accounts');
-                        setIsProfileMenuOpen(false);
-                      }}
-                      className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-zinc-700 hover:bg-zinc-100 transition-colors flex items-center gap-2"
-                    >
-                      <HugeiconsIcon icon={UserIcon} className="h-3.5 w-3.5 text-zinc-500" />
-                      <span>Buying Centers</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsProfileMenuOpen(false);
-                        if (onBackToLanding) onBackToLanding();
-                      }}
-                      className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-zinc-700 hover:bg-zinc-100 transition-colors flex items-center gap-2"
-                    >
-                      <HugeiconsIcon icon={FlashIcon} className="h-3.5 w-3.5 text-zinc-500" />
-                      <span>Public Landing Page</span>
-                    </button>
-
-                    {onSignOut && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsProfileMenuOpen(false);
-                          onSignOut();
-                        }}
-                        className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2 border-t border-zinc-100 pt-2 mt-1 font-semibold"
-                      >
-                        <HugeiconsIcon icon={Logout01Icon} className="h-3.5 w-3.5 text-red-500" />
-                        <span>Sign Out</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          </aside>
-
-          {/* Left Feed Cards Sub-list */}
-          <section className="hidden md:flex w-64 lg:w-72 shrink-0 flex-col gap-3.5 overflow-y-auto pr-0.5 scrollbar-thin">
-            {feedItems.map((item, idx) => {
-              if (item.isFeatured) {
+            {/* Navigation List (10 Clean Items) */}
+            <div className="space-y-1">
+              <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+                Menu
+              </div>
+              {navItems.map((item) => {
+                const isActive = activeNav === item.key;
                 return (
-                  <div
-                    key={item.id}
-                    onClick={() => handleSelectFeedItem(item)}
-                    className="bg-white rounded-3xl p-4 border border-zinc-200/80 shadow-xs space-y-3.5 hover:shadow-sm transition-all cursor-pointer group"
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => {
+                      setActiveNav(item.key);
+                      setIsMobileNavOpen(false);
+                    }}
+                    className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition-all cursor-pointer ${
+                      isActive
+                        ? 'bg-[#966035] text-white shadow-xs'
+                        : 'text-zinc-600 hover:text-zinc-900 hover:bg-[#f7f4ee]'
+                    }`}
                   >
-                    {/* Header: Avatar + Title & Subtitle */}
-                    <div className="flex items-center space-x-3">
-                      <div className="w-9 h-9 rounded-full bg-zinc-900 text-white flex items-center justify-center text-xs font-bold shrink-0">
-                        {item.title[0]}
-                      </div>
-                      <div className="space-y-0.5 flex-1 min-w-0">
-                        <div className="text-xs font-bold text-zinc-900 truncate group-hover:text-black">
-                          {item.title}
-                        </div>
-                        <div className="text-[11px] text-zinc-500 truncate">{item.subtitle}</div>
-                      </div>
-                    </div>
-
-                    {/* Featured Image Box with Landscape Graphic (Matching Reference) */}
-                    <div className="w-full h-32 rounded-2xl bg-zinc-100/90 border border-zinc-200/60 relative overflow-hidden flex items-end justify-center p-3">
-                      <div className="absolute top-3 left-4 w-5 h-5 rounded-full bg-zinc-300/80" />
-                      <svg className="w-full h-16 text-zinc-200/90" viewBox="0 0 200 80" fill="currentColor">
-                        <polygon points="20,80 80,30 140,80" />
-                        <polygon points="90,80 150,20 210,80" />
-                      </svg>
-                      <div className="absolute top-3 right-3">
-                        <span className="text-[10px] font-semibold px-2 py-0.5 bg-white/90 rounded-full text-zinc-800 border border-zinc-200 shadow-xs">
-                          {item.badge}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+                    <HugeiconsIcon
+                      icon={item.icon}
+                      className={`h-4 w-4 shrink-0 ${isActive ? 'text-white' : 'text-zinc-400'}`}
+                    />
+                    <span className="truncate">{item.label}</span>
+                  </button>
                 );
-              }
+              })}
+            </div>
+          </div>
 
-              return (
-                <div
-                  key={item.id}
-                  onClick={() => handleSelectFeedItem(item)}
-                  className="bg-white rounded-3xl p-4 border border-zinc-200/80 shadow-xs space-y-2 hover:shadow-sm transition-all cursor-pointer group"
-                >
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 rounded-full bg-zinc-100 text-zinc-700 border border-zinc-200 flex items-center justify-center text-xs font-semibold shrink-0">
-                      {item.title[0]}
-                    </div>
-                    <div className="space-y-0.5 flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-1">
-                        <span className="text-xs font-semibold text-zinc-900 truncate group-hover:text-black">
-                          {item.title}
-                        </span>
-                        <span className="text-[10px] text-zinc-400 shrink-0">{item.time}</span>
-                      </div>
-                      <div className="text-[11px] text-zinc-500 truncate">{item.subtitle}</div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </section>
-        </div>
+          {/* Bottom Left: Salesperson Quick Status */}
+          <div className="pt-4 border-t border-zinc-100 space-y-2">
+            <div className="p-3 rounded-2xl bg-[#f7f4ee] border border-[#e6ded3] space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-[#7a4d29] uppercase tracking-wider">Quota Progress</span>
+                <span className="text-[11px] font-extrabold text-[#7a4d29]">89%</span>
+              </div>
+              <div className="h-1.5 w-full bg-[#e6ded3] rounded-full overflow-hidden">
+                <div className="h-full bg-[#966035] rounded-full" style={{ width: '89%' }} />
+              </div>
+              <div className="text-[10px] text-zinc-500 pt-0.5">$285k of $320k target</div>
+            </div>
+          </div>
+        </aside>
 
-        {/* ==================================================================== */}
-        {/* COLUMN 2: LARGE CENTRAL WORKSPACE                                   */}
-        {/* ==================================================================== */}
-        <main className="flex-1 min-w-0 bg-white rounded-[32px] border border-zinc-200/80 shadow-xs flex flex-col justify-between p-5 sm:p-7 relative overflow-hidden">
-          {/* Scrollable Center Body Area */}
+        {/* Mobile Navigation Backdrop */}
+        {isMobileNavOpen && (
+          <div
+            onClick={() => setIsMobileNavOpen(false)}
+            className="fixed inset-0 z-30 bg-black/30 backdrop-blur-xs lg:hidden"
+          />
+        )}
+
+        {/* ================================================================== */}
+        {/* PANEL 2: MIDDLE WORKSPACE (Flexible, Largest Area)                  */}
+        {/* ================================================================== */}
+        <main className="flex-1 min-w-0 bg-white rounded-3xl border border-zinc-200/80 shadow-xs flex flex-col justify-between p-4 sm:p-6 lg:p-7 overflow-hidden">
+          {/* Scrollable Main View Area */}
           <div className="w-full flex-1 overflow-y-auto pr-1 pb-4 scrollbar-thin">
-            {/* View Switcher Routing */}
-            {activeNav === 'command-center' && (
-              <CommandCenter
-                metrics={metrics}
-                logs={logs}
-                onSelectDeal={(dealId) => {
-                  setSelectedDealId(dealId);
-                  setActiveNav('deal-room');
+            {activeNav === 'overview' && (
+              <OverviewView
+                session={session}
+                consumers={consumers}
+                deals={deals}
+                selectedConsumerId={selectedConsumerId}
+                onSelectConsumer={(id) => {
+                  setSelectedConsumerId(id);
+                  if (window.innerWidth < 1280) {
+                    setIsRightContextOpenMobile(true);
+                  }
                 }}
-                onOpenHydra={() => setActiveNav('hydra-explorer')}
+                onOpenAddConsumer={() => setIsAddConsumerOpen(true)}
+                onOpenCopilot={(prompt) => handleOpenAssistant(prompt)}
+                onNavigateTab={(tab) => setActiveNav(tab as NavItemKey)}
               />
             )}
 
-            {activeNav === 'deal-room' && (
-              <DealRoom
-                initialDealId={selectedDealId}
-                onOpenHydra={() => setActiveNav('hydra-explorer')}
-              />
-            )}
-
-            {activeNav === 'accounts' && (
-              <AccountIntelligenceView
-                onOpenDealRoom={(dealId) => {
-                  setSelectedDealId(dealId);
-                  setActiveNav('deal-room');
+            {activeNav === 'consumers' && (
+              <ConsumersView
+                consumers={consumers}
+                selectedConsumerId={selectedConsumerId}
+                onSelectConsumer={(id) => {
+                  setSelectedConsumerId(id);
+                  if (window.innerWidth < 1280) {
+                    setIsRightContextOpenMobile(true);
+                  }
                 }}
+                onOpenAddConsumer={() => setIsAddConsumerOpen(true)}
+                onOpenCopilot={(prompt) => handleOpenAssistant(prompt)}
               />
             )}
 
-            {activeNav === 'hydra-explorer' && (
-              <HydraExplorer
-                metrics={metrics}
-                onRefreshMetrics={onRefreshMetrics}
+            {activeNav === 'leads' && (
+              <LeadsView
+                onLeadConverted={(newId) => {
+                  setSelectedConsumerId(newId);
+                  setActiveNav('consumers');
+                }}
+                onOpenCopilot={(prompt) => handleOpenAssistant(prompt)}
               />
             )}
 
-            {activeNav === 'agent-ops' && (
-              <AgentOpsView logs={logs} />
+            {activeNav === 'engagement' && (
+              <EngagementView onOpenCopilot={(prompt) => handleOpenAssistant(prompt)} />
+            )}
+
+            {activeNav === 'campaigns' && (
+              <CampaignsView onOpenCopilot={(prompt) => handleOpenAssistant(prompt)} />
+            )}
+
+            {activeNav === 'deals' && (
+              <DealsView onOpenCopilot={(prompt) => handleOpenAssistant(prompt)} />
+            )}
+
+            {activeNav === 'tasks' && (
+              <TasksView onOpenCopilot={(prompt) => handleOpenAssistant(prompt)} />
+            )}
+
+            {activeNav === 'calendar' && (
+              <CalendarView onOpenCopilot={(prompt) => handleOpenAssistant(prompt)} />
+            )}
+
+            {activeNav === 'reports' && (
+              <ReportsView onOpenCopilot={(prompt) => handleOpenAssistant(prompt)} />
+            )}
+
+            {activeNav === 'settings' && (
+              <SettingsView session={session} />
             )}
           </div>
 
-          {/* Central Bottom Action & Input Dock (Matching Reference Structure) */}
+          {/* Central Bottom Action & Input Dock (ACE Assistant) */}
           <div className="w-full pt-3 border-t border-zinc-100 shrink-0">
             <form
-              onSubmit={handleBottomInputSubmit}
-              className="w-full bg-[#f4f5f7] rounded-2xl sm:rounded-3xl p-2 sm:p-2.5 flex items-center justify-between gap-3 border border-zinc-200/60 shadow-inner"
+              onSubmit={handleAssistantSubmit}
+              className="w-full bg-[#f7f4ee] rounded-2xl sm:rounded-3xl p-2 sm:p-2.5 flex items-center justify-between gap-2.5 border border-[#e6ded3] shadow-inner"
             >
-              {/* Left Action Chips */}
-              <div className="hidden sm:flex items-center space-x-1.5 pl-1.5">
+              {/* Quick Action Chips */}
+              <div className="hidden lg:flex items-center space-x-1.5 pl-1.5">
                 <button
                   type="button"
-                  onClick={() => setIsCopilotOpen(true)}
-                  className="px-2.5 py-1 rounded-full bg-white text-[11px] font-medium text-zinc-600 border border-zinc-200 shadow-xs hover:text-zinc-900 transition-colors cursor-pointer"
+                  onClick={() => handleOpenAssistant('Find consumers needing follow-up today')}
+                  className="px-2.5 py-1 rounded-full bg-white text-[11px] font-semibold text-zinc-700 border border-[#e6ded3] shadow-2xs hover:text-[#966035] hover:border-[#966035] transition-colors cursor-pointer"
                 >
-                  Give-Get Rules
+                  Find consumer
                 </button>
                 <button
                   type="button"
-                  onClick={() => setIsCopilotOpen(true)}
-                  className="px-2.5 py-1 rounded-full bg-white text-[11px] font-medium text-zinc-600 border border-zinc-200 shadow-xs hover:text-zinc-900 transition-colors cursor-pointer"
+                  onClick={() => handleOpenAssistant('Check my highest value deal in negotiation')}
+                  className="px-2.5 py-1 rounded-full bg-white text-[11px] font-semibold text-zinc-700 border border-[#e6ded3] shadow-2xs hover:text-[#966035] hover:border-[#966035] transition-colors cursor-pointer"
                 >
-                  Margin Floor
+                  Check deal
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleOpenAssistant('Create a follow-up task for tomorrow morning')}
+                  className="px-2.5 py-1 rounded-full bg-white text-[11px] font-semibold text-zinc-700 border border-[#e6ded3] shadow-2xs hover:text-[#966035] hover:border-[#966035] transition-colors cursor-pointer"
+                >
+                  Create task
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleOpenAssistant('Schedule a prep meeting for executive pricing review')}
+                  className="px-2.5 py-1 rounded-full bg-white text-[11px] font-semibold text-zinc-700 border border-[#e6ded3] shadow-2xs hover:text-[#966035] hover:border-[#966035] transition-colors cursor-pointer"
+                >
+                  Schedule meeting
                 </button>
               </div>
 
-              {/* Center Input Area */}
+              {/* Input Field */}
               <input
                 type="text"
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                placeholder="Ask about deals, accounts, or pricing..."
-                className="flex-1 bg-transparent text-xs sm:text-sm text-zinc-800 focus:outline-none px-2 placeholder:text-zinc-400"
+                value={assistantInput}
+                onChange={(e) => setAssistantInput(e.target.value)}
+                placeholder="Ask ACE about a consumer, deal, or next step..."
+                className="flex-1 bg-transparent text-xs sm:text-sm text-zinc-900 focus:outline-none px-2 placeholder:text-zinc-400"
               />
 
-              {/* Right Side: Microphone + Black Submit Button */}
-              <div className="flex items-center space-x-1.5 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setIsCopilotOpen(true)}
-                  title="Voice input"
-                  className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-zinc-700 transition-colors cursor-pointer"
-                >
-                  <HugeiconsIcon icon={Mic01Icon} className="h-4 w-4" />
-                </button>
-
-                <button
-                  type="submit"
-                  title="Send to Copilot"
-                  className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-black text-white flex items-center justify-center hover:bg-zinc-800 active:scale-95 transition-all shadow-xs cursor-pointer"
-                >
-                  <HugeiconsIcon icon={ArrowUp01Icon} className="h-4 w-4 stroke-2" />
-                </button>
-              </div>
+              {/* Submit Button (Warm Brown) */}
+              <button
+                type="submit"
+                title="Ask ACE"
+                className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#966035] hover:bg-[#83532c] active:scale-95 text-white flex items-center justify-center transition-all shadow-xs cursor-pointer shrink-0"
+              >
+                <HugeiconsIcon icon={ArrowUp01Icon} className="h-4 w-4 stroke-2" />
+              </button>
             </form>
           </div>
         </main>
 
-        {/* ==================================================================== */}
-        {/* COLUMN 3: RIGHT CONTEXTUAL SIDEBAR (PERMANENT DESKTOP COLUMN)        */}
-        {/* ==================================================================== */}
-        <section className="hidden xl:flex w-72 lg:w-80 shrink-0 flex-col gap-4 overflow-y-auto pl-0.5 scrollbar-thin">
-          {/* Card 1 (Top): Account & Commercial Overview */}
-          <div className="bg-white rounded-3xl p-5 border border-zinc-200/80 shadow-xs space-y-4 hover:shadow-sm transition-shadow">
-            {/* Header: Layout / Grid Icon + Popout Arrow */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <HugeiconsIcon icon={Layout01Icon} className="h-4 w-4 text-zinc-700" />
-                <span className="text-xs font-bold text-zinc-900">
-                  {activeAccount ? activeAccount.name : 'Account Summary'}
+        {/* ================================================================== */}
+        {/* PANEL 3: RIGHT CONTEXT PANEL (300–340px)                           */}
+        {/* ================================================================== */}
+        <aside
+          className={`
+            ${isRightContextOpenMobile ? 'fixed inset-y-0 right-0 z-40 bg-white w-[320px] p-4 shadow-2xl overflow-y-auto' : 'hidden xl:flex'}
+            xl:static xl:z-auto xl:w-[320px] shrink-0 flex-col gap-4 overflow-y-auto pl-0.5 scrollbar-thin
+          `}
+        >
+          {/* Mobile Close Button */}
+          {isRightContextOpenMobile && (
+            <div className="xl:hidden flex items-center justify-between pb-2 border-b border-zinc-100">
+              <span className="text-xs font-bold text-zinc-900">Context Details</span>
+              <button
+                type="button"
+                onClick={() => setIsRightContextOpenMobile(false)}
+                className="p-1 rounded-full text-zinc-400 hover:text-zinc-700"
+              >
+                <HugeiconsIcon icon={Cancel01Icon} className="h-5 w-5" />
+              </button>
+            </div>
+          )}
+
+          {/* Card 1: Selected Consumer Details (Dynamic Context) */}
+          {selectedConsumer && (
+            <div className="bg-white rounded-3xl p-5 border border-zinc-200/80 shadow-xs space-y-4 hover:shadow-sm transition-shadow">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <div className="w-2 h-2 rounded-full bg-[#966035]" />
+                  <span className="text-xs font-bold text-zinc-900">Selected Consumer</span>
+                </div>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#f7f4ee] text-[#7a4d29] border border-[#e6ded3]">
+                  {selectedConsumer.status}
                 </span>
               </div>
+
+              {/* Profile Overview */}
+              <div className="flex items-center space-x-3">
+                <div className="w-11 h-11 rounded-2xl bg-zinc-900 text-white flex items-center justify-center text-sm font-bold shadow-xs">
+                  {selectedConsumer.name.split(' ').map(n => n[0]).join('')}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-bold text-zinc-900 truncate">{selectedConsumer.name}</div>
+                  <div className="text-xs text-zinc-500 truncate">{selectedConsumer.company}</div>
+                </div>
+              </div>
+
+              {/* Quick Info Grid */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="p-2.5 rounded-2xl bg-zinc-50 border border-zinc-200/60">
+                  <div className="text-[10px] uppercase font-semibold tracking-wider text-zinc-400">Deal Value</div>
+                  <div className="text-sm font-extrabold text-zinc-900">${selectedConsumer.dealValue.toLocaleString()}</div>
+                </div>
+                <div className="p-2.5 rounded-2xl bg-zinc-50 border border-zinc-200/60">
+                  <div className="text-[10px] uppercase font-semibold tracking-wider text-zinc-400">Last Contact</div>
+                  <div className="text-xs font-bold text-zinc-800 truncate">{selectedConsumer.lastContact}</div>
+                </div>
+              </div>
+
+              {/* Next Step Box */}
+              <div className="space-y-1 bg-[#f7f4ee] border border-[#e6ded3] p-3 rounded-2xl">
+                <div className="text-[10px] uppercase font-bold text-[#7a4d29] tracking-wider">Next Step</div>
+                <div className="text-xs font-semibold text-zinc-900">{selectedConsumer.nextAction}</div>
+                <div className="text-[10px] text-zinc-500 pt-0.5">{selectedConsumer.nextActionDate}</div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => handleOpenAssistant(`What talk track should I use with ${selectedConsumer.name} at ${selectedConsumer.company}?`)}
+                  className="flex-1 py-2 rounded-full bg-[#966035] hover:bg-[#83532c] text-white text-xs font-bold shadow-xs transition-colors cursor-pointer text-center"
+                >
+                  Ask ACE
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    consumerStore.addTask({
+                      title: `Follow up with ${selectedConsumer.name}`,
+                      relatedTo: selectedConsumer.company,
+                      dueDate: 'Tomorrow',
+                      priority: 'High',
+                      type: 'Call',
+                    });
+                    setActiveNav('tasks');
+                  }}
+                  className="px-3 py-2 rounded-full bg-white hover:bg-zinc-50 text-zinc-700 border border-zinc-200 text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+                >
+                  + Task
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Card 2: Performance Overview */}
+          <div className="bg-white rounded-3xl p-5 border border-zinc-200/80 shadow-xs space-y-3.5 hover:shadow-sm transition-shadow">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-zinc-900">Performance Overview</span>
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+                On Target
+              </span>
+            </div>
+
+            <div className="space-y-2.5 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-zinc-500 font-medium">Monthly Sales Target:</span>
+                <span className="font-bold text-zinc-900">$285k / $320k</span>
+              </div>
+              <div className="h-2 w-full bg-zinc-100 rounded-full overflow-hidden">
+                <div className="h-full bg-[#966035] rounded-full" style={{ width: '89%' }} />
+              </div>
+
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-zinc-500 font-medium">Win Rate:</span>
+                <span className="font-bold text-emerald-700">74.2%</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-zinc-500 font-medium">Average Deal Cycle:</span>
+                <span className="font-bold text-zinc-900">18.5 days</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Card 3: Upcoming Tasks Checklist */}
+          <div className="bg-white rounded-3xl p-5 border border-zinc-200/80 shadow-xs space-y-3 hover:shadow-sm transition-shadow">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-zinc-900">Upcoming Tasks</span>
               <button
                 type="button"
-                onClick={() => setActiveNav('command-center')}
-                title="View full dashboard"
-                className="text-zinc-400 hover:text-zinc-700 transition-colors cursor-pointer"
+                onClick={() => setActiveNav('tasks')}
+                className="text-[11px] font-semibold text-[#966035] hover:text-[#7a4d29] cursor-pointer"
               >
-                <HugeiconsIcon icon={ArrowUpRight01Icon} className="h-3.5 w-3.5" />
+                View all
               </button>
             </div>
 
-            {/* Two Side-by-Side Preview Blocks (Matching Reference Layout) */}
-            <div className="grid grid-cols-2 gap-2.5">
-              {/* Left Preview Block: Target ARR */}
-              <div className="p-3 rounded-2xl bg-zinc-50 border border-zinc-200/60 space-y-1">
-                <div className="text-[10px] uppercase font-semibold tracking-wider text-zinc-400">Target ARR</div>
-                <div className="text-base font-bold text-zinc-900">
-                  ${((activeAccount?.potentialArr || activeAccount?.activeArr || 400000)).toLocaleString()}
-                </div>
-                <div className="text-[10px] text-emerald-600 font-medium flex items-center gap-0.5">
-                  <HugeiconsIcon icon={TradeUpIcon} className="h-2.5 w-2.5" />
-                  +18.4% vs List
-                </div>
-              </div>
-
-              {/* Right Preview Block: Gross Margin */}
-              <div className="p-3 rounded-2xl bg-zinc-50 border border-zinc-200/60 space-y-1">
-                <div className="text-[10px] uppercase font-semibold tracking-wider text-zinc-400">Gross Margin</div>
-                <div className="text-base font-bold text-zinc-900">82.5%</div>
-                <div className="text-[10px] text-zinc-500 font-medium">Floor 78.0% Active</div>
-              </div>
-            </div>
-
-            {/* Account Status Pill */}
-            <div className="flex items-center justify-between pt-1 text-xs">
-              <span className="text-zinc-500">Buying Intent</span>
-              <span className="font-semibold text-zinc-900">{activeAccount?.intentScore || 90}% Score</span>
-            </div>
-
-            {/* Bottom Pagination Dots */}
-            <div className="flex justify-end space-x-1 pt-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-zinc-900" />
-              <span className="w-1.5 h-1.5 rounded-full bg-zinc-200" />
-              <span className="w-1.5 h-1.5 rounded-full bg-zinc-200" />
-            </div>
-          </div>
-
-          {/* Card 2 (Middle): Activity / Calendar & Deal Timeline */}
-          <div className="bg-white rounded-3xl p-5 border border-zinc-200/80 shadow-xs space-y-3.5 hover:shadow-sm transition-shadow">
-            {/* Header: Calendar Icon */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <HugeiconsIcon icon={Calendar01Icon} className="h-4 w-4 text-zinc-700" />
-                <span className="text-xs font-bold text-zinc-900">Upcoming Activity</span>
-              </div>
-              <span className="text-[10px] font-semibold text-zinc-500 bg-zinc-100 px-2 py-0.5 rounded-full">
-                Next 48h
-              </span>
-            </div>
-
-            {/* Wide Meeting / Milestone Banner Block */}
-            <div className="w-full p-3 rounded-2xl bg-zinc-50 border border-zinc-200/60 space-y-1">
-              <div className="text-xs font-semibold text-zinc-900">Executive Pricing Review</div>
-              <div className="text-[11px] text-zinc-500 leading-tight">
-                Reviewing 36-mo Give-Get concession package with C-suite stakeholders.
-              </div>
-            </div>
-
-            {/* Bottom Row: Timestamp + Attendee Stakeholder Avatars */}
-            <div className="flex items-center justify-between pt-1">
-              <span className="text-[11px] text-zinc-400 font-medium">Tomorrow, 10:00 AM</span>
-              <div className="flex -space-x-1.5">
-                <div className="w-6 h-6 rounded-full bg-zinc-800 text-white flex items-center justify-center text-[9px] font-bold ring-2 ring-white">
-                  SC
-                </div>
-                <div className="w-6 h-6 rounded-full bg-zinc-600 text-white flex items-center justify-center text-[9px] font-bold ring-2 ring-white">
-                  MV
-                </div>
-                <div className="w-6 h-6 rounded-full bg-zinc-400 text-white flex items-center justify-center text-[9px] font-bold ring-2 ring-white">
-                  +2
-                </div>
-              </div>
-            </div>
-
-            {/* Bottom Pagination Dots */}
-            <div className="flex justify-end space-x-1 pt-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-zinc-900" />
-              <span className="w-1.5 h-1.5 rounded-full bg-zinc-200" />
-              <span className="w-1.5 h-1.5 rounded-full bg-zinc-200" />
-            </div>
-          </div>
-
-          {/* Card 3 (Bottom): Commercial Guardrails & Controls */}
-          <div className="bg-white rounded-3xl p-5 border border-zinc-200/80 shadow-xs space-y-3.5 hover:shadow-sm transition-shadow">
-            {/* Header: Briefcase Icon + Plus Icon */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <HugeiconsIcon icon={Briefcase01Icon} className="h-4 w-4 text-zinc-700" />
-                <span className="text-xs font-bold text-zinc-900">Pricing Rules</span>
-              </div>
-              <button
-                type="button"
-                onClick={handleExecuteNBAAction}
-                title="Run recommendation"
-                className="text-zinc-400 hover:text-zinc-900 transition-colors cursor-pointer"
-              >
-                <HugeiconsIcon icon={PlusSignIcon} className="h-4 w-4" />
-              </button>
-            </div>
-
-            {/* Row 1: Margin Floor Guardrail Toggle */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2.5">
-                <button
-                  type="button"
-                  onClick={() => setMarginFloorToggle(!marginFloorToggle)}
-                  className={`w-9 h-5 rounded-full transition-colors relative cursor-pointer ${
-                    marginFloorToggle ? 'bg-zinc-900' : 'bg-zinc-200'
-                  }`}
+            <div className="space-y-2">
+              {tasks.slice(0, 3).map((task) => (
+                <div
+                  key={task.id}
+                  onClick={() => consumerStore.toggleTask(task.id)}
+                  className="flex items-start space-x-2.5 p-2 rounded-xl hover:bg-zinc-50 transition-colors cursor-pointer text-xs"
                 >
-                  <span
-                    className={`block w-3.5 h-3.5 rounded-full bg-white shadow-xs transition-transform absolute top-0.5 ${
-                      marginFloorToggle ? 'right-0.5' : 'left-0.5'
+                  <button
+                    type="button"
+                    className={`w-4 h-4 rounded-sm border flex items-center justify-center mt-0.5 shrink-0 ${
+                      task.completed
+                        ? 'bg-[#966035] border-[#966035] text-white'
+                        : 'border-zinc-300 hover:border-[#966035]'
                     }`}
-                  />
-                </button>
-                <span className="text-xs font-medium text-zinc-800">78% Margin Floor</span>
-              </div>
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
-                {marginFloorToggle ? 'Enforced' : 'Off'}
-              </span>
-            </div>
-
-            {/* Row 2: Give-Get Concession Rule Toggle */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2.5">
-                <button
-                  type="button"
-                  onClick={() => setGiveGetToggle(!giveGetToggle)}
-                  className={`w-9 h-5 rounded-full transition-colors relative cursor-pointer ${
-                    giveGetToggle ? 'bg-zinc-900' : 'bg-zinc-200'
-                  }`}
-                >
-                  <span
-                    className={`block w-3.5 h-3.5 rounded-full bg-white shadow-xs transition-transform absolute top-0.5 ${
-                      giveGetToggle ? 'right-0.5' : 'left-0.5'
-                    }`}
-                  />
-                </button>
-                <span className="text-xs font-medium text-zinc-800">Give-Get Policy</span>
-              </div>
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-700 border border-zinc-200">
-                {giveGetToggle ? 'Multi-Year' : 'Flexible'}
-              </span>
-            </div>
-
-            {/* Next Best Action Trigger Feedback */}
-            {actionSuccessMsg && (
-              <div className="p-2 rounded-xl bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-800 font-medium flex items-center gap-1.5">
-                <HugeiconsIcon icon={CheckmarkCircle02Icon} className="h-3.5 w-3.5 text-emerald-600" />
-                <span>{actionSuccessMsg}</span>
-              </div>
-            )}
-
-            {/* Bottom Pagination Dots */}
-            <div className="flex justify-end space-x-1 pt-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-zinc-900" />
-              <span className="w-1.5 h-1.5 rounded-full bg-zinc-200" />
-              <span className="w-1.5 h-1.5 rounded-full bg-zinc-200" />
+                  >
+                    {task.completed && <HugeiconsIcon icon={CheckmarkCircle02Icon} className="h-3 w-3" />}
+                  </button>
+                  <div className="min-w-0">
+                    <div className={`font-semibold truncate ${task.completed ? 'line-through text-zinc-400' : 'text-zinc-800'}`}>
+                      {task.title}
+                    </div>
+                    <div className="text-[10px] text-zinc-400">{task.dueDate}</div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-        </section>
+
+          {/* Card 4: Recent Activity Stream */}
+          <div className="bg-white rounded-3xl p-5 border border-zinc-200/80 shadow-xs space-y-3 hover:shadow-sm transition-shadow">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-zinc-900">Recent Activity</span>
+              <span className="text-[10px] text-zinc-400">Live</span>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="flex items-start space-x-2.5">
+                <div className="w-6 h-6 rounded-full bg-[#f7f4ee] text-[#966035] border border-[#e6ded3] flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">
+                  <HugeiconsIcon icon={Mail01Icon} className="h-3 w-3" />
+                </div>
+                <div>
+                  <div className="font-semibold text-zinc-900">Sent revised 3-year quote</div>
+                  <div className="text-[10px] text-zinc-400">Sarah Chen • 25m ago</div>
+                </div>
+              </div>
+
+              <div className="flex items-start space-x-2.5">
+                <div className="w-6 h-6 rounded-full bg-[#f7f4ee] text-[#966035] border border-[#e6ded3] flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">
+                  <HugeiconsIcon icon={CallIcon} className="h-3 w-3" />
+                </div>
+                <div>
+                  <div className="font-semibold text-zinc-900">Completed compliance sync</div>
+                  <div className="text-[10px] text-zinc-400">Marcus Vance • 2h ago</div>
+                </div>
+              </div>
+
+              <div className="flex items-start space-x-2.5">
+                <div className="w-6 h-6 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">
+                  <HugeiconsIcon icon={CheckmarkCircle02Icon} className="h-3 w-3" />
+                </div>
+                <div>
+                  <div className="font-semibold text-zinc-900">Signed 2-year partnership</div>
+                  <div className="text-[10px] text-zinc-400">Beacon Retail • Yesterday</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        {/* Mobile Right Context Backdrop */}
+        {isRightContextOpenMobile && (
+          <div
+            onClick={() => setIsRightContextOpenMobile(false)}
+            className="fixed inset-0 z-30 bg-black/30 backdrop-blur-xs xl:hidden"
+          />
+        )}
       </div>
 
-      {/* Slide-over Copilot Drawer (Does NOT destroy 3-column layout) */}
+      {/* Slide-over Assistant Drawer */}
       <AICopilotDrawer
         isOpen={isCopilotOpen}
         onClose={() => setIsCopilotOpen(false)}
+        initialPrompt={copilotInitialPrompt}
+      />
+
+      {/* Add Consumer Modal */}
+      <AddConsumerModal
+        isOpen={isAddConsumerOpen}
+        onClose={() => setIsAddConsumerOpen(false)}
+        onConsumerAdded={(newConsumer) => {
+          setSelectedConsumerId(newConsumer.id);
+          setActiveNav('consumers');
+        }}
       />
     </div>
   );
