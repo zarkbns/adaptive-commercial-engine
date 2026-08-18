@@ -196,7 +196,7 @@ Create a graph record:
 ```bash
 curl -X POST   http://localhost:8443/v1/graphs/default/query   -H "Authorization: Bearer $HYDRADB_API_KEY"   -H "X-Graph-Namespace: default"   -H "Content-Type: application/json"   -d '{
     "cell_id": "cell-0",
-    "query": "MERGE (n:Account {id: "ace-demo-account", name: "Demo Account"}) RETURN n"
+    "query": "MERGE (n:Account {id: \"ace-demo-account\", name: \"Demo Account\"}) RETURN n"
   }'
 ```
 
@@ -211,7 +211,7 @@ Then query the same record:
 ```bash
 curl -X POST   http://localhost:8443/v1/graphs/default/query   -H "Authorization: Bearer $HYDRADB_API_KEY"   -H "X-Graph-Namespace: default"   -H "Content-Type: application/json"   -d '{
     "cell_id": "cell-0",
-    "query": "MATCH (n:Account {id: "ace-demo-account"}) RETURN n"
+    "query": "MATCH (n:Account {id: "\ace-demo-account\"}) RETURN n"
   }'
 ```
 
