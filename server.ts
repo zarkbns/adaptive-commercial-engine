@@ -139,7 +139,7 @@ app.get('/api/health', async (req, res) => {
 
   res.json({
     status: 'ok',
-    service: 'A.C.E - Adaptive Commercial Engine Server',
+    service: 'ace - Adaptive Commercial Engine Server',
     hydraStatus: hydraUpstreamReachable ? 'HydraDB OSS Container Connected' : 'HydraDB OSS Container Disconnected',
     hydraConfig: {
       queryUrl: HYDRADB_URL,
