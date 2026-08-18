@@ -19,6 +19,7 @@ import {
   Logout01Icon,
 } from '@hugeicons/core-free-icons';
 import { UserSession } from '../services/authService';
+import { ThemeToggle } from './ThemeToggle';
 
 interface LandingPageProps {
   onLaunchApp: () => void;
@@ -682,7 +683,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </div>
 
         <div className="max-w-6xl mx-auto mt-12 pt-6 border-t border-zinc-100 flex flex-col sm:flex-row items-center justify-between text-[11px] text-zinc-400 gap-4">
-          <div>© {new Date().getFullYear()} ace Inc. All rights reserved.</div>
+          <div className="flex items-center space-x-3">
+            <span>© {new Date().getFullYear()} ace Inc. All rights reserved.</span>
+            <ThemeToggle />
+          </div>
           <div className="flex items-center space-x-6">
             <span>Security</span>
             <span>SOC 2 Certified</span>
