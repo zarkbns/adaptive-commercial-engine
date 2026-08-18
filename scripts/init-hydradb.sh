@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Script to initialize HydraDB OSS data directories and auth token for A.C.E
+# Script to initialize HydraDB OSS data directories and auth token for ace
 echo "==> Initializing HydraDB OSS directory structure..."
 
 # 1. Primary volume directory for Docker Compose
