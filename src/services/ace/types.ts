@@ -1,5 +1,5 @@
 /**
- * A.C.E (Adaptive Commercial Engine) Types
+ * ace (Adaptive Commercial Engine) Types
  */
 
 export interface DealConfiguration {
@@ -48,7 +48,7 @@ export interface PricingAnalysisResult {
 export interface AgentExecutionLog {
   id: string;
   timestamp: string;
-  agentName: 'A.C.E Commander' | 'Hydra Memory Agent' | 'Pricing & Yield Optimizer' | 'Deal Risk Sentry' | 'Lead Prospector';
+  agentName: 'ace Commander' | 'A.C.E Commander' | 'Hydra Memory Agent' | 'Pricing & Yield Optimizer' | 'Deal Risk Sentry' | 'Lead Prospector';
   action: string;
   status: 'SUCCESS' | 'RUNNING' | 'ADAPTED' | 'WARNING';
   details: string;

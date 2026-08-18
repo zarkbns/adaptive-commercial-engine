@@ -91,72 +91,90 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   const activeAccount = useMemo(() => {
     const found = accounts.find((a) => a.id === selectedAccountId);
     if (found) return found;
-    return accounts[0] || {
-      id: 'acc_primary',
-      name: 'Enterprise Client Alpha',
-      industry: 'Autonomous Cloud Logistics',
-      tier: 'Enterprise',
-      intentScore: 94,
-      targetArr: 480000,
-      stakeholders: [],
-      nextBestAction: { action: 'Execute Concession Give-Get Playbook', suggestedChannel: 'Executive Email', rationale: 'High intent detected with margin floor intact.' },
-    };
+    return accounts[0] || null;
   }, [accounts, selectedAccountId]);
 
-  // Feed items for left sub-list (customer accounts, buying signals, and deal updates)
+  // Feed items derived dynamically from HydraDB nodes and relations
   const feedItems = useMemo(() => {
-    return [
-      {
-        id: 'acc_apex_logistics',
+    const items: any[] = [];
+    const nodes = hydraSnapshot.nodes || [];
+
+    // 1. Account nodes
+    const accountNodes = nodes.filter((n) => n.type === 'Account');
+    accountNodes.forEach((acc, index) => {
+      items.push({
+        id: acc.id,
         type: 'featured_account',
-        title: 'Apex Logistics Global',
-        subtitle: 'Freight Systems • $480k ARR',
-        time: 'Active Deal',
-        badge: '92% Intent',
-        tag: 'Enterprise Tier',
-        isFeatured: true,
-      },
-      {
-        id: 'contact_sarah_chen',
+        title: acc.label,
+        subtitle: `${acc.properties?.industry || 'Enterprise'} • $${((acc.properties?.targetArr || 400000) / 1000).toFixed(0)}k ARR`,
+        time: acc.properties?.currentStage || 'Active Deal',
+        badge: `${acc.properties?.dealHealthScore || acc.properties?.intentScore || 90}% Intent`,
+        tag: acc.tags?.[0] || 'Enterprise Tier',
+        isFeatured: index === 0,
+      });
+    });
+
+    // 2. Contact / Champion nodes
+    const contactNodes = nodes.filter((n) => n.type === 'Contact');
+    contactNodes.forEach((c) => {
+      items.push({
+        id: c.id,
         type: 'contact',
-        title: 'Sarah Chen • VP Engineering',
-        subtitle: 'Key Champion • Positive Sentiment',
-        time: '2h ago',
-        badge: 'Champion',
-        tag: 'Engineering',
+        title: `${c.label} • ${c.properties?.role || 'Stakeholder'}`,
+        subtitle: `${c.properties?.sentiment || 'Neutral'} Sentiment • Influence ${c.properties?.influenceScore || 0.8}`,
+        time: 'Active Contact',
+        badge: c.properties?.role?.includes('Champion') ? 'Champion' : 'Stakeholder',
+        tag: 'Buying Committee',
         isFeatured: false,
-      },
-      {
-        id: 'signal_expansion_hiring',
+      });
+    });
+
+    // 3. BuyingSignal nodes
+    const signalNodes = nodes.filter((n) => n.type === 'BuyingSignal');
+    signalNodes.forEach((s) => {
+      items.push({
+        id: s.id,
         type: 'signal',
-        title: 'Buying Signal',
-        subtitle: '18 Platform roles posted in Q2',
-        time: '4h ago',
-        badge: 'Expansion',
-        tag: 'High Intent',
+        title: s.label,
+        subtitle: `Confidence: ${((s.properties?.confidence || 0.9) * 100).toFixed(0)}%`,
+        time: 'Signal',
+        badge: 'High Intent',
+        tag: s.tags?.[0] || 'Buying Signal',
         isFeatured: false,
-      },
-      {
-        id: 'deal_concession_review',
+      });
+    });
+
+    // 4. Deal nodes
+    const dealNodes = nodes.filter((n) => n.type === 'Deal');
+    dealNodes.forEach((d) => {
+      items.push({
+        id: d.id,
         type: 'deal',
-        title: 'Pricing Review Scheduled',
-        subtitle: '14% Discount request tied to 36-mo prepay',
-        time: 'Yesterday',
+        title: d.label,
+        subtitle: `Target ARR: $${((d.properties?.targetArr || 0) / 1000).toFixed(0)}k • Margin ${d.properties?.grossMarginExpectedPct || 82}%`,
+        time: 'Contract',
         badge: 'In Review',
-        tag: 'Pricing',
+        tag: 'Deal Term',
         isFeatured: false,
-      },
-      {
-        id: 'rule_margin_guardrail',
+      });
+    });
+
+    // 5. ConcessionRule / PricingConstraint nodes
+    const ruleNodes = nodes.filter((n) => n.type === 'ConcessionRule' || n.type === 'PricingConstraint');
+    ruleNodes.forEach((r) => {
+      items.push({
+        id: r.id,
         type: 'rule',
-        title: 'Margin Rule Active',
-        subtitle: 'Gross margin floor enforced at 78.0%',
+        title: r.label,
+        subtitle: r.properties?.rule || 'Gross margin floor enforced at 78.0%',
         time: 'Live Policy',
         badge: '78% Floor',
         tag: 'Pricing Policy',
         isFeatured: false,
-      },
-    ].filter((item) => {
+      });
+    });
+
+    return items.filter((item) => {
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase();
       return (
@@ -165,7 +183,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
         item.tag.toLowerCase().includes(q)
       );
     });
-  }, [searchQuery]);
+  }, [hydraSnapshot, searchQuery]);
 
   const handleSelectFeedItem = (item: any) => {
     if (item.type === 'featured_account' || item.id.startsWith('acc_')) {
@@ -189,8 +207,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   };
 
   const handleExecuteNBAAction = () => {
+    if (!activeAccount) return;
     ACEAgentOrchestrator.getInstance().addLog({
-      agentName: 'A.C.E Commander',
+      agentName: 'ace Commander',
       action: `Executed NBA: ${activeAccount.nextBestAction.action}`,
       status: 'SUCCESS',
       details: `Dispatched via ${activeAccount.nextBestAction.suggestedChannel} for ${activeAccount.name}.`,
@@ -203,13 +222,13 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
     <div className="min-h-screen bg-[#f4f5f8] text-zinc-900 font-sans antialiased p-3 sm:p-5 lg:p-6 flex flex-col justify-between selection:bg-zinc-200">
       {/* 1. TOP BAR */}
       <header className="w-full mb-4 flex items-center justify-between gap-4">
-        {/* Left Side: A.C.E Logo Box + Search Bar Pill */}
+        {/* Left Side: ace Logo Box + Search Bar Pill */}
         <div className="flex items-center gap-3 sm:gap-4 flex-1 max-w-xl">
-          {/* Top Left Brand Box: Exact A.C.E Logo Asset (FlashIcon in Squircle) */}
+          {/* Top Left Brand Box: Exact ace Logo Asset (FlashIcon in Squircle) */}
           <button
             type="button"
             onClick={onBackToLanding}
-            title="A.C.E Commercial Engine • Return to Overview"
+            title="ace Commercial Engine • Return to Overview"
             className="w-11 h-11 rounded-2xl bg-zinc-900 text-white flex items-center justify-center shadow-xs hover:bg-black transition-all cursor-pointer shrink-0 active:scale-95 group"
           >
             <HugeiconsIcon icon={FlashIcon} className="h-5 w-5 fill-current text-white transition-transform group-hover:scale-110" />
@@ -240,51 +259,14 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
           </div>
         </div>
 
-        {/* Right Side: Tool Icons + A.C.E AI Copilot Action Button */}
+        {/* Right Side: Copilot Action Button */}
         <div className="flex items-center space-x-2 sm:space-x-3 shrink-0">
-          <button
-            type="button"
-            title="Data Graph"
-            onClick={() => setActiveNav('hydra-explorer')}
-            className="w-10 h-10 rounded-full bg-white border border-zinc-200/80 flex items-center justify-center text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50 transition-colors shadow-xs cursor-pointer"
-          >
-            <HugeiconsIcon icon={Location01Icon} className="h-4 w-4" />
-          </button>
-
-          <button
-            type="button"
-            title="Timeline & Activity"
-            onClick={() => setActiveNav('command-center')}
-            className="w-10 h-10 rounded-full bg-white border border-zinc-200/80 flex items-center justify-center text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50 transition-colors shadow-xs cursor-pointer"
-          >
-            <HugeiconsIcon icon={Calendar01Icon} className="h-4 w-4" />
-          </button>
-
-          <button
-            type="button"
-            title="Connected Tools"
-            onClick={() => setActiveNav('agent-ops')}
-            className="w-10 h-10 rounded-full bg-white border border-zinc-200/80 flex items-center justify-center text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50 transition-colors shadow-xs cursor-pointer"
-          >
-            <HugeiconsIcon icon={Link01Icon} className="h-4 w-4" />
-          </button>
-
-          <button
-            type="button"
-            title="Settings"
-            onClick={() => setActiveNav('deal-room')}
-            className="w-10 h-10 rounded-full bg-white border border-zinc-200/80 flex items-center justify-center text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50 transition-colors shadow-xs cursor-pointer"
-          >
-            <HugeiconsIcon icon={Settings01Icon} className="h-4 w-4" />
-          </button>
-
-          {/* A.C.E AI Copilot Entry Button */}
           <button
             type="button"
             id="btn-open-copilot-top"
             onClick={() => setIsCopilotOpen(true)}
             title="Open Copilot"
-            className="h-10 px-3.5 rounded-full bg-black text-white flex items-center space-x-2 hover:bg-zinc-800 transition-all shadow-xs cursor-pointer active:scale-95 shrink-0"
+            className="h-10 px-4 rounded-full bg-black text-white flex items-center space-x-2 hover:bg-zinc-800 transition-all shadow-xs cursor-pointer active:scale-95 shrink-0"
           >
             <HugeiconsIcon icon={SparklesIcon} className="h-4 w-4 text-white animate-pulse" />
             <span className="text-xs font-semibold tracking-tight hidden sm:inline">Copilot</span>
@@ -629,7 +611,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <HugeiconsIcon icon={Layout01Icon} className="h-4 w-4 text-zinc-700" />
-                <span className="text-xs font-bold text-zinc-900">Account Summary</span>
+                <span className="text-xs font-bold text-zinc-900">
+                  {activeAccount ? activeAccount.name : 'Account Summary'}
+                </span>
               </div>
               <button
                 type="button"
@@ -646,7 +630,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
               {/* Left Preview Block: Target ARR */}
               <div className="p-3 rounded-2xl bg-zinc-50 border border-zinc-200/60 space-y-1">
                 <div className="text-[10px] uppercase font-semibold tracking-wider text-zinc-400">Target ARR</div>
-                <div className="text-base font-bold text-zinc-900">${(activeAccount.targetArr || 480000).toLocaleString()}</div>
+                <div className="text-base font-bold text-zinc-900">
+                  ${((activeAccount?.potentialArr || activeAccount?.activeArr || 400000)).toLocaleString()}
+                </div>
                 <div className="text-[10px] text-emerald-600 font-medium flex items-center gap-0.5">
                   <HugeiconsIcon icon={TradeUpIcon} className="h-2.5 w-2.5" />
                   +18.4% vs List
@@ -664,7 +650,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
             {/* Account Status Pill */}
             <div className="flex items-center justify-between pt-1 text-xs">
               <span className="text-zinc-500">Buying Intent</span>
-              <span className="font-semibold text-zinc-900">{activeAccount.intentScore || 92}% Score</span>
+              <span className="font-semibold text-zinc-900">{activeAccount?.intentScore || 90}% Score</span>
             </div>
 
             {/* Bottom Pagination Dots */}

@@ -1,5 +1,5 @@
 /**
- * A.C.E Account Intelligence & Prospector Engine
+ * ace Account Intelligence & Prospector Engine
  * Synthesizes Account Dossiers and Next Best Actions from HydraDB Context
  */
 

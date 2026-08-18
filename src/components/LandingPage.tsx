@@ -38,35 +38,35 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   const tabs = [
     {
       id: 'stakeholders' as const,
-      label: 'Stakeholders',
+      label: 'Contacts',
       icon: UserGroup02Icon,
-      title: 'Stakeholder and decision-maker tracking',
-      description: 'Map key decision-makers and influencers automatically, with sentiment tracking from emails and meetings.',
-      highlights: ['Map buying committees automatically', 'Track sentiment across calls and emails', 'See executive engagement in real time'],
+      title: 'Know the buyers and decision makers',
+      description: 'See who makes decisions and how they feel from meeting notes and emails.',
+      highlights: ['Find the key buyers', 'Track customer sentiment', 'See who is engaged on every deal'],
     },
     {
       id: 'pricing' as const,
-      label: 'Pricing Rules',
+      label: 'Pricing',
       icon: Analytics01Icon,
-      title: 'Protect margins on every deal',
-      description: 'Keep margins above target with automated pricing rules and smart concession recommendations.',
-      highlights: ['Automated 78%+ gross margin floor', 'Smart trade-off recommendations', 'Real-time concession tracking'],
+      title: 'Protect your profits on every deal',
+      description: 'Set clear discount limits and get simple trade-off suggestions when customers ask for lower prices.',
+      highlights: ['Set clear profit floor rules', 'Trade discounts for longer contracts', 'Track all deal concessions'],
     },
     {
       id: 'agents' as const,
-      label: 'Smart Agents',
+      label: 'Deal Helpers',
       icon: Layers01Icon,
-      title: 'Automated deal research and risk detection',
-      description: 'Specialized assistants continuously review contract drafts, identify competitor moves, and flag risks.',
-      highlights: ['Instant answers grounded in company data', 'Fast context lookup across deals', 'Actionable recommendations ready to send'],
+      title: 'Find deal risks and answers fast',
+      description: 'Automated helpers review draft terms, check competitor moves, and flag deal risks.',
+      highlights: ['Get quick answers from your deal data', 'Look up account history in seconds', 'Get next steps ready to send'],
     },
     {
       id: 'team' as const,
-      label: 'Team Sync',
+      label: 'Team',
       icon: Briefcase01Icon,
-      title: 'Keep sales, legal, and leadership aligned',
-      description: 'A single place for approval workflows, pricing terms, and next steps across teams.',
-      highlights: ['Clear approval workflows', 'Shared deal timeline and milestones', 'Instant sync with Slack, Calendar, and Drive'],
+      title: 'Keep sales, legal, and leaders on the same page',
+      description: 'One shared place for deal approvals, price terms, and next steps.',
+      highlights: ['Clear approval steps', 'Shared timeline and milestones', 'Works with your calendar, email, and files'],
     },
   ];
 
@@ -77,20 +77,20 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       id: 'figma',
       name: 'Figma',
       status: 'Connected',
-      details: 'Product tiering and feature specs',
+      details: 'Product tiers and feature specs',
     },
     {
       id: 'calendar',
       name: 'Google Calendar',
       iconText: '31',
       status: 'Connected',
-      details: 'Deal meetings and attendee schedules',
+      details: 'Meeting times and attendee lists',
     },
     {
       id: 'slack',
       name: 'Slack',
       status: 'Connected',
-      details: 'Live deal chatter and pricing requests',
+      details: 'Team chat and discount requests',
     },
     {
       id: 'meet',
@@ -102,26 +102,26 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       id: 'miro',
       name: 'Miro',
       status: 'Connected',
-      details: 'Org chart and stakeholder map',
+      details: 'Org charts and team maps',
     },
     {
       id: 'drive',
       name: 'Google Drive',
       status: 'Connected',
-      details: 'Contracts, MSAs, and redlines',
+      details: 'Contracts, quotes, and files',
     },
     {
       id: 'messages',
       name: 'Messages',
       status: 'Connected',
-      details: 'Direct customer communication',
+      details: 'Direct customer chats',
     },
     {
       id: 'notion',
       name: 'Notion',
       iconText: 'N',
       status: 'Connected',
-      details: 'Pricing guides and playbooks',
+      details: 'Price lists and sales guides',
     },
   ];
 
@@ -135,7 +135,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <div className="w-8 h-8 rounded-xl bg-zinc-900 text-white flex items-center justify-center shadow-xs">
               <HugeiconsIcon icon={FlashIcon} className="h-4 w-4 fill-current" />
             </div>
-            <span className="text-base font-bold tracking-tight text-zinc-900">A.C.E</span>
+            <span className="text-base font-bold tracking-tight text-zinc-900">ace</span>
           </div>
 
           {/* Action CTAs */}
@@ -184,11 +184,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       <section id="overview" className="relative pt-12 sm:pt-20 pb-16 sm:pb-24 px-4 sm:px-6 lg:px-8 overflow-hidden">
         <div className="max-w-5xl mx-auto text-center space-y-4 mb-12">
           <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-zinc-900 max-w-3xl mx-auto leading-[1.15]">
-            Turn connected business data into customer intelligence
+            Close better deals and protect your profit
           </h1>
 
           <p className="text-sm sm:text-base text-zinc-500 max-w-2xl mx-auto leading-relaxed">
-            A.C.E connects customer activity, deal history, emails, and meetings to help your team understand accounts, protect margins, and close deals faster.
+            ace brings together your accounts, deal history, emails, and meetings so your team can understand buyers, price fairly, and win deals faster.
           </p>
 
           <div className="flex flex-wrap items-center justify-center gap-3 pt-3">
@@ -230,7 +230,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 type="text"
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
-                placeholder="Ask about an account, deal terms, or pricing strategy..."
+                placeholder="Ask about an account, discount rules, or next steps..."
                 className="w-full bg-transparent text-xs sm:text-sm text-zinc-900 placeholder-zinc-400 focus:outline-none pr-3"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
@@ -251,7 +251,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 </button>
                 <button
                   type="button"
-                  title="Attach document"
+                  title="Attach file"
                   onClick={onLaunchApp}
                   className="hover:text-zinc-800 transition-colors cursor-pointer"
                 >
@@ -271,7 +271,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             {/* Far Right Submit Button */}
             <button
               onClick={onLaunchApp}
-              title="Execute"
+              title="Run"
               className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-black text-white shadow-md flex items-center justify-center hover:bg-zinc-800 active:scale-95 transition-all cursor-pointer shrink-0"
             >
               <HugeiconsIcon icon={ArrowUp01Icon} className="h-5 w-5 stroke-2 text-white" />
@@ -280,14 +280,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </div>
       </section>
 
-      {/* 3. VISUAL PRODUCT PREVIEW SECTION (A.C.E 3-COLUMN INTERFACE PREVIEW) */}
+      {/* 3. VISUAL PRODUCT PREVIEW SECTION */}
       <section id="product-preview" className="py-16 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto">
         <div className="text-center space-y-3 mb-10">
           <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-zinc-900">
-            A clean workspace built for deal execution
+            A simple workspace built to win deals
           </h2>
           <p className="text-sm text-zinc-500 max-w-2xl mx-auto leading-relaxed">
-            Everything your team needs to understand accounts, run deals, track timelines, and protect margins.
+            Everything you need in one screen: account history, deal terms, timelines, and pricing help.
           </p>
         </div>
 
@@ -305,12 +305,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               </div>
             </div>
             <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 rounded-full bg-white border border-zinc-200 flex items-center justify-center text-zinc-600">
-                <HugeiconsIcon icon={Location01Icon} className="h-3.5 w-3.5" />
-              </div>
-              <div className="w-8 h-8 rounded-full bg-white border border-zinc-200 flex items-center justify-center text-zinc-600">
-                <HugeiconsIcon icon={Calendar01Icon} className="h-3.5 w-3.5" />
-              </div>
               <button
                 onClick={onLaunchApp}
                 className="h-8 px-3 rounded-full bg-black text-white text-[11px] font-semibold flex items-center gap-1.5 cursor-pointer hover:bg-zinc-800"
@@ -336,13 +330,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   </div>
                 </div>
                 <div className="h-16 rounded-xl bg-zinc-100 border border-zinc-200/70 flex items-center justify-center text-[10px] font-semibold text-zinc-500">
-                  94% Buying Intent
+                  94% Buying Interest
                 </div>
               </div>
 
               <div className="bg-white rounded-2xl p-3 border border-zinc-200 shadow-xs space-y-1">
                 <div className="text-xs font-bold text-zinc-900">Buying Signal</div>
-                <div className="text-[10px] text-zinc-500">18 Platform roles posted</div>
+                <div className="text-[10px] text-zinc-500">18 Platform jobs posted</div>
               </div>
             </div>
 
@@ -350,24 +344,24 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <div className="col-span-12 sm:col-span-8 lg:col-span-6 bg-white rounded-2xl p-4 border border-zinc-200 shadow-xs flex flex-col justify-between min-h-[220px]">
               <div className="space-y-3">
                 <div className="flex items-center justify-between pb-2 border-b border-zinc-100">
-                  <span className="text-xs font-bold text-zinc-900">Deal Workspace & Pricing Modeler</span>
+                  <span className="text-xs font-bold text-zinc-900">Deal Terms & Price Calculator</span>
                   <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                    Pricing Protected
+                    Margin Protected
                   </span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="p-2.5 rounded-xl bg-zinc-50 border border-zinc-200/80">
-                    <div className="text-[9px] uppercase font-semibold text-zinc-400">Margin Target</div>
+                    <div className="text-[9px] uppercase font-semibold text-zinc-400">Profit Target</div>
                     <div className="text-sm font-bold text-zinc-900">82.5%</div>
                   </div>
                   <div className="p-2.5 rounded-xl bg-zinc-50 border border-zinc-200/80">
-                    <div className="text-[9px] uppercase font-semibold text-zinc-400">Payment Term</div>
-                    <div className="text-sm font-bold text-zinc-900">36-Month Prepay</div>
+                    <div className="text-[9px] uppercase font-semibold text-zinc-400">Payment Plan</div>
+                    <div className="text-sm font-bold text-zinc-900">3-Year Upfront</div>
                   </div>
                 </div>
               </div>
               <div className="mt-3 p-2 rounded-xl bg-[#f4f5f8] border border-zinc-200 text-[11px] text-zinc-600 flex items-center justify-between">
-                <span>Ask about deal terms or concessions...</span>
+                <span>Ask about deal terms or discounts...</span>
                 <div className="w-5 h-5 rounded-full bg-black text-white flex items-center justify-center text-[10px]">
                   ↑
                 </div>
@@ -378,15 +372,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <div className="hidden lg:block col-span-3 space-y-3">
               <div className="bg-white rounded-2xl p-3.5 border border-zinc-200 shadow-xs space-y-2">
                 <div className="text-xs font-bold text-zinc-900 flex items-center justify-between">
-                  <span>Pricing Rules</span>
+                  <span>Price Rules</span>
                   <span className="text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">Active</span>
                 </div>
-                <div className="text-[11px] text-zinc-600">78% Margin Floor Active</div>
-                <div className="text-[11px] text-zinc-600">Give-Get Policy Enforced</div>
+                <div className="text-[11px] text-zinc-600">78% Minimum Margin Set</div>
+                <div className="text-[11px] text-zinc-600">Give-Get Policy Active</div>
               </div>
               <div className="bg-white rounded-2xl p-3.5 border border-zinc-200 shadow-xs space-y-1">
-                <div className="text-xs font-bold text-zinc-900">Next Milestone</div>
-                <div className="text-[10px] text-zinc-500">Pricing review in 24h</div>
+                <div className="text-xs font-bold text-zinc-900">Next Step</div>
+                <div className="text-[10px] text-zinc-500">Pricing call in 24h</div>
               </div>
             </div>
           </div>
@@ -408,10 +402,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       <section id="capabilities" className="py-20 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto">
         <div className="text-center space-y-3 mb-10">
           <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900">
-            Built for high-performing sales teams
+            Made for busy sales teams
           </h2>
           <p className="text-sm sm:text-base text-zinc-500 max-w-2xl mx-auto leading-relaxed">
-            Stay aligned, track stakeholder sentiment, protect margins, and make fast commercial decisions.
+            Stay on track, know who to talk to, keep your profit margins safe, and make quick decisions.
           </p>
         </div>
 
@@ -484,7 +478,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   onClick={onLaunchApp}
                   className="flex items-center space-x-2 rounded-full bg-zinc-900 hover:bg-black px-5 py-2.5 text-xs font-semibold text-white shadow-xs transition-all cursor-pointer"
                 >
-                  <span>Open in workspace</span>
+                  <span>Open workspace</span>
                   <HugeiconsIcon icon={ArrowRight01Icon} className="h-3.5 w-3.5" />
                 </button>
               </div>
@@ -500,7 +494,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             Connect your everyday tools
           </h2>
           <p className="text-sm sm:text-base text-zinc-500 max-w-2xl mx-auto leading-relaxed">
-            Sync calendars, emails, meetings, and documents directly into your workspace.
+            Sync calendars, emails, meetings, and files straight into your workspace.
           </p>
         </div>
 
@@ -669,10 +663,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <div className="w-7 h-7 rounded-xl bg-zinc-900 text-white flex items-center justify-center shadow-xs">
                 <HugeiconsIcon icon={FlashIcon} className="h-3.5 w-3.5 fill-current" />
               </div>
-              <span className="text-base font-bold text-zinc-900">A.C.E</span>
+              <span className="text-base font-bold text-zinc-900">ace</span>
             </div>
             <p className="text-xs text-zinc-500 max-w-md">
-              Adaptive commercial execution platform for high-velocity teams.
+              Simple deal execution for fast-growing sales teams.
             </p>
           </div>
 
@@ -688,7 +682,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </div>
 
         <div className="max-w-6xl mx-auto mt-12 pt-6 border-t border-zinc-100 flex flex-col sm:flex-row items-center justify-between text-[11px] text-zinc-400 gap-4">
-          <div>© {new Date().getFullYear()} A.C.E Inc. All rights reserved.</div>
+          <div>© {new Date().getFullYear()} ace Inc. All rights reserved.</div>
           <div className="flex items-center space-x-6">
             <span>Security</span>
             <span>SOC 2 Certified</span>

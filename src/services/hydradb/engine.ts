@@ -236,7 +236,7 @@ export class HydraDBEngine {
             tags,
             validFrom: ent.validFrom || timestamp,
             validTo: ent.validTo || null,
-            authorAgent: payload.authorAgent || 'A.C.E. Substrate',
+            authorAgent: payload.authorAgent || 'ace Substrate',
             updatedAt: timestamp,
           });
 
@@ -316,12 +316,21 @@ export class HydraDBEngine {
       };
     } catch (err: any) {
       console.error('HydraDB OSS Graph Ingest failed:', err);
-      // Invariant: Do NOT update local cache on failed write
+      // Invariant: Do NOT advance commit or staged cache. 
+      // Reconcile/resync local cache projection from authoritative HydraDB to ensure consistency after potential partial writes.
+      const partialWritesOccurred = nodesCreated > 0 || edgesCreated > 0;
+      if (partialWritesOccurred) {
+        console.warn(`Partial write detected during ingestion (${nodesCreated} nodes, ${edgesCreated} edges sent before error). Re-syncing local cache from authoritative HydraDB...`);
+        this.syncFromAuthoritativeRelations().catch((syncErr) => {
+          console.error('Post-failure cache resync failed:', syncErr);
+        });
+      }
+
       return {
         jobId,
         status: 'failed',
         indexing_status: 'failed',
-        message: `HydraDB OSS Ingestion Error: ${err.message}`,
+        message: `HydraDB OSS Ingestion Error: ${err.message}${partialWritesOccurred ? ` (Notice: REST mutation is non-atomic; partial write occurred: ${nodesCreated} nodes, ${edgesCreated} edges)` : ''}`,
         createdAt: timestamp,
       };
     }

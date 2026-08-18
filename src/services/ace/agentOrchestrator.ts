@@ -63,7 +63,7 @@ export class ACEAgentOrchestrator {
     const targetDeal = snapshot.nodes.find((n) => n.type === 'Deal');
 
     this.addLog({
-      agentName: 'A.C.E Commander',
+      agentName: 'ace Commander',
       action: 'Initiating Autonomous Commercial Yield Sweep',
       status: 'RUNNING',
       details: 'Scanning active deals against HydraDB concession policy matrix & margin threshold...',
@@ -220,10 +220,10 @@ export class ACEAgentOrchestrator {
     const initialSeed: Omit<AgentExecutionLog, 'id'>[] = [
       {
         timestamp: '05:18:22',
-        agentName: 'A.C.E Commander',
+        agentName: 'ace Commander',
         action: 'Engine Initialization & Substrate Mount',
         status: 'SUCCESS',
-        details: 'A.C.E Commercial Core online. Mounted HydraDB Temporal Context Graph with active nodes and relations.',
+        details: 'ace Commercial Core online. Mounted HydraDB Temporal Context Graph with active nodes and relations.',
         temporalCommitHash: 'hydra_genesis_01',
       },
       {

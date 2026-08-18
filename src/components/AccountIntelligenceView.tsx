@@ -28,7 +28,7 @@ export const AccountIntelligenceView: React.FC<AccountIntelligenceViewProps> = (
 
   const handleExecuteNBA = (account: AccountIntelligence) => {
     ACEAgentOrchestrator.getInstance().addLog({
-      agentName: 'A.C.E Commander',
+      agentName: 'ace Commander',
       action: `Executed NBA: ${account.nextBestAction.action}`,
       status: 'SUCCESS',
       details: `Dispatched via ${account.nextBestAction.suggestedChannel} for ${account.name}. Rationale: ${account.nextBestAction.rationale}`,
@@ -54,28 +54,38 @@ export const AccountIntelligenceView: React.FC<AccountIntelligenceViewProps> = (
       </div>
 
       {/* Account Selector Tabs */}
-      <div className="flex overflow-x-auto space-x-2 pb-2 scrollbar-none">
-        {accounts.map((acc) => (
-          <button
-            key={acc.id}
-            id={`tab-account-${acc.id}`}
-            onClick={() => setSelectedAccountId(acc.id)}
-            className={`shrink-0 flex items-center space-x-2.5 rounded-2xl border px-4 py-2.5 text-xs font-semibold transition-all shadow-xs cursor-pointer ${
-              selectedAccountId === acc.id
-                ? 'border-zinc-900 bg-zinc-900 text-white'
-                : 'border-zinc-200/80 bg-white text-zinc-600 hover:border-zinc-300 hover:text-zinc-900'
-            }`}
-          >
-            <HugeiconsIcon icon={Building01Icon} className={`h-4 w-4 ${selectedAccountId === acc.id ? 'text-white' : 'text-zinc-500'}`} />
-            <div className="text-left">
-              <div>{acc.name}</div>
-              <div className={`text-[10px] font-normal ${selectedAccountId === acc.id ? 'text-zinc-300' : 'text-zinc-400'}`}>
-                Intent: {acc.intentScore}% • {acc.tier}
+      {accounts.length > 0 ? (
+        <div className="flex overflow-x-auto space-x-2 pb-2 scrollbar-none">
+          {accounts.map((acc) => (
+            <button
+              key={acc.id}
+              id={`tab-account-${acc.id}`}
+              onClick={() => setSelectedAccountId(acc.id)}
+              className={`shrink-0 flex items-center space-x-2.5 rounded-2xl border px-4 py-2.5 text-xs font-semibold transition-all shadow-xs cursor-pointer ${
+                selectedAccountId === acc.id
+                  ? 'border-zinc-900 bg-zinc-900 text-white'
+                  : 'border-zinc-200/80 bg-white text-zinc-600 hover:border-zinc-300 hover:text-zinc-900'
+              }`}
+            >
+              <HugeiconsIcon icon={Building01Icon} className={`h-4 w-4 ${selectedAccountId === acc.id ? 'text-white' : 'text-zinc-500'}`} />
+              <div className="text-left">
+                <div>{acc.name}</div>
+                <div className={`text-[10px] font-normal ${selectedAccountId === acc.id ? 'text-zinc-300' : 'text-zinc-400'}`}>
+                  Intent: {acc.intentScore}% • {acc.tier}
+                </div>
               </div>
-            </div>
-          </button>
-        ))}
-      </div>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-3xl border border-dashed border-zinc-200 bg-zinc-50/50 p-8 text-center space-y-2">
+          <HugeiconsIcon icon={Building01Icon} className="h-8 w-8 text-zinc-400 mx-auto" />
+          <h3 className="text-sm font-semibold text-zinc-800">No Account Entities in HydraDB</h3>
+          <p className="text-xs text-zinc-500 max-w-sm mx-auto">
+            HydraDB returned zero account records. Ingest accounts via OpenCypher or the Deal Room to populate buying centers.
+          </p>
+        </div>
+      )}
 
       {/* Selected Account Deep Dossier */}
       {selectedAccount && (

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { 
   Dollar01Icon, 
@@ -22,24 +22,21 @@ interface DealRoomProps {
 }
 
 export const DealRoom: React.FC<DealRoomProps> = ({ initialDealId, onOpenHydra }) => {
-  const availableAccounts = useMemo(() => {
+  const hydraSnapshot = useMemo(() => {
     const hydra = HydraDBEngine.getInstance();
-    const snapshot = hydra.getGraphSnapshot();
-    const accountNodes = (snapshot.nodes || []).filter(
+    return hydra.getGraphSnapshot();
+  }, [initialDealId]);
+
+  const availableAccounts = useMemo(() => {
+    const accountNodes = (hydraSnapshot.nodes || []).filter(
       (n) => n.type?.toLowerCase() === 'account'
     );
-    if (accountNodes.length > 0) {
-      return accountNodes.map((a) => ({
-        id: a.id,
-        name: a.label,
-        targetArr: a.properties?.targetArr || 400000,
-      }));
-    }
-    return [
-      { id: 'acc_primary', name: 'Enterprise Client Alpha', targetArr: 450000 },
-      { id: 'acc_secondary', name: 'Commercial Client Beta', targetArr: 280000 },
-    ];
-  }, []);
+    return accountNodes.map((a) => ({
+      id: a.id,
+      name: a.label,
+      targetArr: a.properties?.targetArr || 400000,
+    }));
+  }, [hydraSnapshot]);
 
   const [selectedAccount, setSelectedAccount] = useState<string>(() => {
     const hydra = HydraDBEngine.getInstance();
@@ -48,8 +45,15 @@ export const DealRoom: React.FC<DealRoomProps> = ({ initialDealId, onOpenHydra }
       if (node?.label) return node.label;
     }
     const accounts = hydra.getGraphSnapshot().nodes.filter((n) => n.type?.toLowerCase() === 'account');
-    return accounts[0]?.label || 'Enterprise Client Alpha';
+    return accounts[0]?.label || '';
   });
+
+  // Keep selectedAccount in sync if accounts load dynamically
+  useEffect(() => {
+    if (!selectedAccount && availableAccounts.length > 0) {
+      setSelectedAccount(availableAccounts[0].name);
+    }
+  }, [availableAccounts, selectedAccount]);
 
   const [planTier, setPlanTier] = useState<DealConfiguration['planTier']>('Enterprise');
   const [seatCount, setSeatCount] = useState<number>(350);
@@ -154,7 +158,7 @@ export const DealRoom: React.FC<DealRoomProps> = ({ initialDealId, onOpenHydra }
       setCommitSuccessHash(commit.commitHash);
 
       ACEAgentOrchestrator.getInstance().addLog({
-        agentName: 'A.C.E Commander',
+        agentName: 'ace Commander',
         action: 'Commercial Contract Terms Committed to HydraDB',
         status: 'ADAPTED',
         details: `Authorized $${pricingAnalysis.effectiveArr.toLocaleString()} ARR for ${selectedAccount}. Gross margin locked at ${pricingAnalysis.grossMarginPct}%.`,
@@ -196,18 +200,24 @@ export const DealRoom: React.FC<DealRoomProps> = ({ initialDealId, onOpenHydra }
         {/* Account Selector */}
         <div className="flex items-center space-x-2">
           <span className="text-xs text-zinc-500 font-medium hidden sm:inline">Target Account:</span>
-          <select
-            id="select-account"
-            value={selectedAccount}
-            onChange={(e) => setSelectedAccount(e.target.value)}
-            className="rounded-xl border border-zinc-200 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-800 shadow-xs focus:border-zinc-400 focus:outline-none"
-          >
-            {availableAccounts.map((acc) => (
-              <option key={acc.id} value={acc.name}>
-                {acc.name} (${(acc.targetArr / 1000).toFixed(0)}k ARR Target)
-              </option>
-            ))}
-          </select>
+          {availableAccounts.length > 0 ? (
+            <select
+              id="select-account"
+              value={selectedAccount}
+              onChange={(e) => setSelectedAccount(e.target.value)}
+              className="rounded-xl border border-zinc-200 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-800 shadow-xs focus:border-zinc-400 focus:outline-none"
+            >
+              {availableAccounts.map((acc) => (
+                <option key={acc.id} value={acc.name}>
+                  {acc.name} (${(acc.targetArr / 1000).toFixed(0)}k ARR Target)
+                </option>
+              ))}
+            </select>
+          ) : (
+            <div className="rounded-xl border border-dashed border-zinc-300 bg-zinc-50 px-3 py-1 text-xs text-zinc-500">
+              No accounts in HydraDB
+            </div>
+          )}
         </div>
       </div>
 
@@ -540,7 +550,7 @@ export const DealRoom: React.FC<DealRoomProps> = ({ initialDealId, onOpenHydra }
             <div className="rounded-3xl border border-zinc-200/80 bg-zinc-50 p-4 text-xs text-zinc-800 space-y-2 animate-fadeIn shadow-xs">
               <div className="flex items-center justify-between border-b border-zinc-200 pb-2">
                 <span className="font-bold text-zinc-900 flex items-center gap-1.5">
-                  <HugeiconsIcon icon={BotIcon} className="h-4 w-4 text-zinc-700" /> A.C.E Strategy Dossier
+                  <HugeiconsIcon icon={BotIcon} className="h-4 w-4 text-zinc-700" /> ace Strategy Dossier
                 </span>
                 <span className="text-[10px] text-zinc-500 font-mono">Autonomous Strategy</span>
               </div>
