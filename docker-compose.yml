@@ -73,4 +73,4 @@ services:
       HYDRADB_API_KEY: ${HYDRADB_API_KEY}
     depends_on:
       hydradb:
-        condition: service_healthy
+        condition: service_started
