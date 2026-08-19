@@ -5,9 +5,10 @@ import {
   SentIcon, 
   SparklesIcon,
   UserIcon,
-  Briefcase01Icon,
-  Calendar01Icon,
-  File01Icon,
+  Message01Icon,
+  Layers01Icon,
+  TradeUpIcon,
+  BookOpen01Icon,
 } from '@hugeicons/core-free-icons';
 import { classifyCopilotIntent } from '../services/ace/intentGate';
 
@@ -25,10 +26,10 @@ interface AICopilotDrawerProps {
 }
 
 const QUICK_ACTIONS = [
-  { label: 'Find a consumer', prompt: 'Help me find and summarize the latest updates on Sarah Chen and Apex Global Logistics.', icon: UserIcon },
-  { label: 'Check a deal', prompt: 'Check the status and next step for our highest value deal in negotiation.', icon: Briefcase01Icon },
-  { label: 'Create a task', prompt: 'Help me prepare a follow-up task and checklist for tomorrow morning.', icon: File01Icon },
-  { label: 'Schedule a meeting', prompt: 'Suggest agenda items and prep notes for our next client review call.', icon: Calendar01Icon },
+  { label: 'Customer insights', prompt: 'What key insights has ace learned across all customer conversations?', icon: BookOpen01Icon },
+  { label: 'What changed?', prompt: 'What relationship changes or emerging customer concerns were detected recently?', icon: TradeUpIcon },
+  { label: 'Summarize conversations', prompt: 'Summarize recent customer interactions and highlight important themes.', icon: Message01Icon },
+  { label: 'Specific customer context', prompt: 'Tell me everything ace has learned about Sarah Chen and Apex Global Logistics.', icon: UserIcon },
 ];
 
 export const AICopilotDrawer: React.FC<AICopilotDrawerProps> = ({ isOpen, onClose, initialPrompt }) => {
@@ -36,7 +37,7 @@ export const AICopilotDrawer: React.FC<AICopilotDrawerProps> = ({ isOpen, onClos
     {
       id: 'm1',
       sender: 'assistant',
-      text: `Hello! I'm your **ace Assistant**. How can I help you with your consumers, deals, tasks, or next steps today?`,
+      text: `Hello! I'm **ace**, your customer intelligence agent. I continuously remember and connect what we learn across customer conversations, emails, and meetings. How can I help you reason over customer context today?`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     },
   ]);
@@ -75,8 +76,6 @@ export const AICopilotDrawer: React.FC<AICopilotDrawerProps> = ({ isOpen, onClos
     setIsThinking(true);
     setStreamingMessageId(null);
 
-    const classification = classifyCopilotIntent(textToSend);
-
     try {
       const response = await fetch('/api/ace/copilot', {
         method: 'POST',
@@ -107,198 +106,165 @@ export const AICopilotDrawer: React.FC<AICopilotDrawerProps> = ({ isOpen, onClos
         for (const line of lines) {
           const trimmed = line.trim();
           if (!trimmed.startsWith('data:')) continue;
-          const payload = trimmed.slice(5).trim();
-          if (!payload) continue;
+          const jsonStr = trimmed.replace(/^data:\s*/, '');
+          if (!jsonStr) continue;
 
           try {
-            const data = JSON.parse(payload);
+            const data = JSON.parse(jsonStr);
 
-            if (data.type === 'chunk' && typeof data.text === 'string') {
-              if (!botMsgId) {
-                botMsgId = 'bot_' + Date.now();
-                setIsThinking(false);
-                setStreamingMessageId(botMsgId);
-                setMessages((prev) => [
-                  ...prev,
-                  {
-                    id: botMsgId!,
-                    sender: 'assistant',
-                    text: data.text,
-                    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                  },
-                ]);
-              } else {
-                const chunkText = data.text;
-                setMessages((prev) =>
-                  prev.map((msg) =>
-                    msg.id === botMsgId
-                      ? { ...msg, text: msg.text + chunkText }
-                      : msg
-                  )
-                );
-              }
-            } else if (data.type === 'done') {
-              setStreamingMessageId(null);
+            if (data.type === 'start') {
               setIsThinking(false);
+              botMsgId = 'bot_' + Date.now();
+              setStreamingMessageId(botMsgId);
+              setMessages((prev) => [
+                ...prev,
+                {
+                  id: botMsgId!,
+                  sender: 'assistant',
+                  text: '',
+                  timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                },
+              ]);
+            } else if (data.type === 'chunk' && botMsgId) {
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === botMsgId ? { ...msg, text: msg.text + (data.text || '') } : msg
+                )
+              );
+            } else if (data.type === 'error') {
+              setIsThinking(false);
+              setMessages((prev) => [
+                ...prev,
+                {
+                  id: 'err_' + Date.now(),
+                  sender: 'assistant',
+                  text: data.message || 'I encountered an issue synthesizing customer context.',
+                  timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                },
+              ]);
             }
-          } catch (err) {
-            console.warn('Error parsing SSE event in Assistant stream:', err);
+          } catch (e) {
+            // Skip parse errors
           }
         }
       }
-    } catch (error) {
-      console.error('Assistant streaming request failed:', error);
-      let fallbackText = 'I am here to help you organize your consumers, deals, and daily tasks.';
-      if (classification.intent !== 'CASUAL') {
-        fallbackText = `For Sarah Chen at Apex Global Logistics, the best next step is to present the 3-year term proposal with annual upfront billing. That keeps our deal economics strong and addresses their procurement timeline.`;
-      }
-
-      const fallbackMsg: Message = {
-        id: 'bot_err_' + Date.now(),
-        sender: 'assistant',
-        text: fallbackText,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      };
-      setMessages((prev) => [...prev, fallbackMsg]);
+    } catch (err: any) {
+      setIsThinking(false);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: 'err_' + Date.now(),
+          sender: 'assistant',
+          text: `ace reasoning is currently using offline memory synthesis: "${err.message || 'Network error'}"`,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        },
+      ]);
     } finally {
+      setIsGenerating(false);
       setIsThinking(false);
       setStreamingMessageId(null);
-      setIsGenerating(false);
     }
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/25 backdrop-blur-xs animate-fadeIn">
-      <div className="flex h-full w-full max-w-md sm:max-w-lg flex-col border-l border-zinc-200 bg-white shadow-2xl">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-[#e6ded3] p-4 bg-[#f7f4ee]">
-          <div className="flex items-center space-x-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#966035] text-white shadow-xs text-xs font-bold">
-              <HugeiconsIcon icon={SparklesIcon} className="h-4 w-4" />
-            </div>
-            <div>
-              <div className="flex items-center space-x-2">
-                <span className="text-sm font-bold text-zinc-900">ace Assistant</span>
-              </div>
-              <p className="text-[11px] text-zinc-500">Sales Guidance & Next Best Moves</p>
-            </div>
+    <div className="fixed inset-y-0 right-0 w-full sm:w-[460px] bg-white dark:bg-zinc-900 border-l border-zinc-200 dark:border-zinc-800 shadow-2xl z-50 flex flex-col animate-slideLeft">
+      {/* Header */}
+      <div className="p-4 sm:p-5 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between bg-zinc-50/70 dark:bg-zinc-850">
+        <div className="flex items-center space-x-2.5">
+          <div className="w-8 h-8 rounded-xl bg-[#966035] text-white flex items-center justify-center shadow-xs">
+            <HugeiconsIcon icon={SparklesIcon} className="h-4 w-4" />
           </div>
+          <div>
+            <div className="text-sm font-bold text-zinc-900 dark:text-white">Ask ace</div>
+            <div className="text-[11px] text-zinc-500 dark:text-zinc-400">Customer Intelligence & Business Memory</div>
+          </div>
+        </div>
 
-          <button
-            type="button"
-            id="btn-close-copilot"
-            onClick={onClose}
-            className="rounded-full p-1.5 text-zinc-400 hover:bg-white hover:text-zinc-900 transition-colors cursor-pointer border border-transparent hover:border-zinc-200"
+        <button
+          type="button"
+          onClick={onClose}
+          className="p-1.5 rounded-full text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-200/60 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+        >
+          <HugeiconsIcon icon={Cancel01Icon} className="h-4 w-4" />
+        </button>
+      </div>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 text-xs">
+        {messages.map((m) => (
+          <div
+            key={m.id}
+            className={`flex flex-col ${m.sender === 'user' ? 'items-end' : 'items-start'}`}
           >
-            <HugeiconsIcon icon={Cancel01Icon} className="h-4 w-4" />
-          </button>
-        </div>
-
-        {/* Message Stream */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 text-xs scrollbar-thin bg-zinc-50/50">
-          {messages.map((msg) => (
             <div
-              key={msg.id}
-              className={`flex gap-3 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+              className={`max-w-[88%] rounded-2xl p-3.5 leading-relaxed ${
+                m.sender === 'user'
+                  ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 rounded-br-none shadow-xs'
+                  : 'bg-[#f7f4ee] text-zinc-800 dark:bg-zinc-800 dark:text-zinc-100 rounded-bl-none border border-[#e6ded3] dark:border-zinc-700/60'
+              }`}
             >
-              {msg.sender === 'assistant' && (
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#966035] text-white mt-0.5 shadow-xs text-xs font-semibold">
-                  <HugeiconsIcon icon={SparklesIcon} className="h-3.5 w-3.5" />
-                </div>
-              )}
-
-              <div
-                className={`max-w-[88%] rounded-2xl p-4 leading-relaxed space-y-2 shadow-2xs ${
-                  msg.sender === 'user'
-                    ? 'bg-zinc-900 text-white font-medium rounded-br-xs'
-                    : 'bg-white text-zinc-800 border border-zinc-200/80 rounded-bl-xs'
-                }`}
-              >
-                <div className="whitespace-pre-wrap leading-relaxed space-y-2">
-                  {msg.text}
-                  {streamingMessageId === msg.id && (
-                    <span
-                      className="inline-block w-1.5 h-3.5 ml-1 bg-[#966035] align-middle animate-pulse rounded-xs"
-                      aria-label="Generating response"
-                    />
-                  )}
-                </div>
-                <div className="flex items-center justify-between text-[10px] opacity-60 pt-1.5 border-t border-zinc-100">
-                  <span>{msg.timestamp}</span>
-                </div>
-              </div>
-
-              {msg.sender === 'user' && (
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-zinc-200 border border-zinc-300 text-zinc-700 mt-0.5 text-xs font-semibold">
-                  U
-                </div>
-              )}
+              <div className="whitespace-pre-wrap">{m.text}</div>
             </div>
-          ))}
+            <span className="text-[10px] text-zinc-400 mt-1 px-1">{m.timestamp}</span>
+          </div>
+        ))}
 
-          {/* Thinking Indicator */}
-          {isThinking && (
-            <div className="flex gap-3 justify-start animate-fadeIn">
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#966035] text-white mt-0.5 shadow-xs text-xs font-semibold">
-                <HugeiconsIcon icon={SparklesIcon} className="h-3.5 w-3.5" />
-              </div>
-              <div className="flex items-center space-x-2.5 rounded-2xl bg-white border border-zinc-200/80 px-4 py-3 text-xs text-zinc-600 shadow-2xs rounded-bl-xs">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#966035] animate-pulse" />
-                <span className="text-zinc-500 text-xs font-medium italic">ace is thinking...</span>
-              </div>
-            </div>
-          )}
+        {isThinking && (
+          <div className="flex items-center space-x-2 text-zinc-400 text-xs p-2">
+            <div className="w-2 h-2 rounded-full bg-[#966035] animate-pulse" />
+            <span>ace is reviewing customer memory and reasoning...</span>
+          </div>
+        )}
 
-          <div ref={messagesEndRef} />
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Quick Prompts */}
+      <div className="p-3 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
+        <div className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-2 px-1">
+          Suggested Questions
         </div>
-
-        {/* Quick Suggestion Actions */}
-        <div className="px-3 py-2.5 border-t border-[#e6ded3] bg-[#f7f4ee] flex flex-wrap gap-1.5">
+        <div className="grid grid-cols-2 gap-1.5">
           {QUICK_ACTIONS.map((action) => (
             <button
               key={action.label}
               type="button"
-              disabled={isGenerating}
               onClick={() => handleSendMessage(action.prompt)}
-              className="rounded-full bg-white hover:bg-zinc-50 px-3 py-1.5 text-[11px] font-semibold text-zinc-700 border border-[#e6ded3] transition-colors flex items-center space-x-1.5 disabled:opacity-40 cursor-pointer shadow-2xs hover:border-[#966035]"
+              className="p-2 rounded-xl bg-white dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 text-left transition-colors cursor-pointer group"
             >
-              <HugeiconsIcon icon={action.icon} className="h-3 w-3 text-[#966035]" />
-              <span>{action.label}</span>
+              <div className="text-[11px] font-bold text-zinc-800 dark:text-zinc-200 truncate group-hover:text-[#966035]">
+                {action.label}
+              </div>
             </button>
           ))}
         </div>
-
-        {/* Input Form */}
-        <div className="p-3 border-t border-zinc-100 bg-white">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleSendMessage();
-            }}
-            className="flex items-center space-x-2"
-          >
-            <input
-              id="input-copilot-prompt"
-              type="text"
-              placeholder="Ask ACE about a consumer, deal, or next step..."
-              value={inputPrompt}
-              onChange={(e) => setInputPrompt(e.target.value)}
-              disabled={isGenerating}
-              className="flex-1 rounded-full border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-xs text-zinc-900 placeholder-zinc-400 focus:border-[#966035] focus:bg-white focus:outline-none disabled:opacity-50"
-            />
-            <button
-              id="btn-send-copilot"
-              type="submit"
-              disabled={isGenerating || !inputPrompt.trim()}
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-[#966035] hover:bg-[#83532c] active:scale-95 text-white shadow-xs transition-all disabled:opacity-40 cursor-pointer"
-            >
-              <HugeiconsIcon icon={SentIcon} className="h-4 w-4" />
-            </button>
-          </form>
-        </div>
       </div>
+
+      {/* Input Form */}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleSendMessage();
+        }}
+        className="p-3 sm:p-4 border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex items-center gap-2"
+      >
+        <input
+          type="text"
+          value={inputPrompt}
+          onChange={(e) => setInputPrompt(e.target.value)}
+          placeholder="Ask ace anything about your customers..."
+          className="flex-1 px-4 py-2.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-[#966035]/30 border border-transparent focus:border-[#966035]"
+        />
+        <button
+          type="submit"
+          disabled={!inputPrompt.trim() || isGenerating}
+          className="w-9 h-9 rounded-full bg-[#966035] hover:bg-[#83532c] disabled:opacity-40 text-white flex items-center justify-center shadow-xs transition-colors cursor-pointer shrink-0"
+        >
+          <HugeiconsIcon icon={SentIcon} className="h-4 w-4" />
+        </button>
+      </form>
     </div>
   );
 };

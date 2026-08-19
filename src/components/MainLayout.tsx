@@ -20,10 +20,13 @@ import {
   CallIcon,
   Clock01Icon,
   ArrowUpRight01Icon,
+  ArrowRight01Icon,
   Menu01Icon,
   Cancel01Icon,
   Logout01Icon,
   UserIcon,
+  BookOpen01Icon,
+  Message01Icon,
 } from '@hugeicons/core-free-icons';
 import { UserSession } from '../services/authService';
 import { consumerStore, Consumer, Deal, TaskItem } from '../services/consumerService';
@@ -67,7 +70,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   onSignOut,
   session,
 }) => {
-  // Navigation State (Exclusively 10 items)
+  // Navigation State
   const [activeNav, setActiveNav] = useState<NavItemKey>('overview');
 
   // Mobile / Tablet Drawer states
@@ -120,17 +123,17 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
     setAssistantInput('');
   };
 
-  // 10 Left Navigation Items (clean & non-technical)
+  // 10 Left Navigation Items (Framed as Customer Intelligence & Memory)
   const navItems = [
     { key: 'overview' as NavItemKey, label: 'Overview', icon: Layout01Icon },
-    { key: 'consumers' as NavItemKey, label: 'Consumers', icon: UserGroup02Icon },
-    { key: 'leads' as NavItemKey, label: 'Leads', icon: StarIcon },
-    { key: 'engagement' as NavItemKey, label: 'Engagement', icon: TradeUpIcon },
-    { key: 'campaigns' as NavItemKey, label: 'Campaigns', icon: Megaphone01Icon },
-    { key: 'deals' as NavItemKey, label: 'Deals', icon: Briefcase01Icon },
-    { key: 'tasks' as NavItemKey, label: 'Tasks', icon: File01Icon },
-    { key: 'calendar' as NavItemKey, label: 'Calendar', icon: Calendar01Icon },
-    { key: 'reports' as NavItemKey, label: 'Reports', icon: Analytics01Icon },
+    { key: 'consumers' as NavItemKey, label: 'Knowledge Base', icon: BookOpen01Icon },
+    { key: 'leads' as NavItemKey, label: 'Inbound Signals', icon: StarIcon },
+    { key: 'engagement' as NavItemKey, label: 'Conversations', icon: Message01Icon },
+    { key: 'campaigns' as NavItemKey, label: 'Outreach Streams', icon: Megaphone01Icon },
+    { key: 'deals' as NavItemKey, label: 'Agreements', icon: Briefcase01Icon },
+    { key: 'tasks' as NavItemKey, label: 'Action Items', icon: File01Icon },
+    { key: 'calendar' as NavItemKey, label: 'Schedule', icon: Calendar01Icon },
+    { key: 'reports' as NavItemKey, label: 'Insights & Synthesis', icon: Analytics01Icon },
     { key: 'settings' as NavItemKey, label: 'Settings', icon: Settings01Icon },
   ];
 
@@ -151,12 +154,12 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
             <HugeiconsIcon icon={Menu01Icon} className="h-5 w-5" />
           </button>
 
-          {/* 180px Logo as requested by user */}
+          {/* 180px Logo */}
           <button
             type="button"
             onClick={() => setActiveNav('overview')}
             className="flex items-center focus:outline-none cursor-pointer group"
-            title="ace • Sales Workspace"
+            title="ace • Customer Intelligence Agent"
           >
             <img
               src="https://i.ibb.co/gLHGDBz0/1001308108-removebg-preview.png"
@@ -175,13 +178,13 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
               type="text"
               value={globalSearch}
               onChange={(e) => setGlobalSearch(e.target.value)}
-              placeholder="Search consumers, deals, or tasks..."
+              placeholder="Search customer context, insights, or notes..."
               className="w-full bg-transparent text-xs text-zinc-800 dark:text-zinc-100 focus:outline-none placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
             />
           </div>
         </div>
 
-        {/* Right Actions: Add Consumer, Ask ACE, Right Panel Toggle on Mobile, User Profile */}
+        {/* Right Actions: Add Customer, Ask ace, Right Panel Toggle on Mobile, User Profile */}
         <div className="flex items-center space-x-2 sm:space-x-3">
           <button
             type="button"
@@ -189,7 +192,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
             className="inline-flex items-center space-x-1.5 px-3.5 sm:px-4 py-2 rounded-full bg-[#966035] hover:bg-[#83532c] text-white text-xs font-bold shadow-xs transition-all cursor-pointer active:scale-95 shrink-0"
           >
             <HugeiconsIcon icon={PlusSignIcon} className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Add Consumer</span>
+            <span className="hidden sm:inline">Add Customer</span>
             <span className="sm:hidden">Add</span>
           </button>
 
@@ -199,7 +202,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
             className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-full bg-[#f7f4ee] dark:bg-zinc-800 hover:bg-[#ede4d8] dark:hover:bg-zinc-700 text-[#7a4d29] dark:text-amber-200 border border-[#e6ded3] dark:border-zinc-700 text-xs font-bold shadow-2xs transition-all cursor-pointer active:scale-95 shrink-0"
           >
             <HugeiconsIcon icon={SparklesIcon} className="h-3.5 w-3.5 text-[#966035] dark:text-amber-300" />
-            <span className="hidden md:inline">Ask ACE</span>
+            <span className="hidden md:inline">Ask ace</span>
           </button>
 
           {/* Context toggle for mobile/tablet */}
@@ -207,7 +210,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
             type="button"
             onClick={() => setIsRightContextOpenMobile(!isRightContextOpenMobile)}
             className="xl:hidden p-2 rounded-full text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer border border-zinc-200 dark:border-zinc-700"
-            title="Toggle context details"
+            title="Toggle customer context details"
           >
             <HugeiconsIcon icon={Layout01Icon} className="h-4 w-4" />
           </button>
@@ -234,7 +237,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                       {session?.name || 'Alex Morgan'}
                     </div>
                     <div className="text-[10px] text-zinc-500 dark:text-zinc-400 truncate">
-                      {session?.role || 'Senior Sales Representative'}
+                      {session?.role || 'Knowledge Operator'}
                     </div>
                   </div>
                 </div>
@@ -248,32 +251,32 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                     }}
                     className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors flex items-center gap-2"
                   >
-                    <HugeiconsIcon icon={Settings01Icon} className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
+                    <HugeiconsIcon icon={Settings01Icon} className="h-4 w-4 text-zinc-400" />
                     <span>Settings</span>
                   </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsProfileMenuOpen(false);
-                      if (onBackToLanding) onBackToLanding();
-                    }}
-                    className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors flex items-center gap-2"
-                  >
-                    <HugeiconsIcon icon={Layout01Icon} className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
-                    <span>Public Landing Page</span>
-                  </button>
-
+                  {onBackToLanding && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onBackToLanding();
+                        setIsProfileMenuOpen(false);
+                      }}
+                      className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors flex items-center gap-2"
+                    >
+                      <HugeiconsIcon icon={ArrowUpRight01Icon} className="h-4 w-4 text-zinc-400" />
+                      <span>Back to Landing</span>
+                    </button>
+                  )}
                   {onSignOut && (
                     <button
                       type="button"
                       onClick={() => {
-                        setIsProfileMenuOpen(false);
                         onSignOut();
+                        setIsProfileMenuOpen(false);
                       }}
-                      className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors flex items-center gap-2 border-t border-zinc-100 dark:border-zinc-800 pt-2 mt-1 font-semibold"
+                      className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors flex items-center gap-2"
                     >
-                      <HugeiconsIcon icon={Logout01Icon} className="h-3.5 w-3.5 text-rose-500" />
+                      <HugeiconsIcon icon={Logout01Icon} className="h-4 w-4 text-rose-500" />
                       <span>Sign Out</span>
                     </button>
                   )}
@@ -285,99 +288,110 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
       </header>
 
       {/* ==================================================================== */}
-      {/* 2. THREE-PANEL DASHBOARD LAYOUT WITH RESPONSIVE BREAKPOINTS          */}
-      {/* Desktop (xl ≥ 1280px): 3 panels side-by-side (230px | Flex | 320px)   */}
-      {/* Tablet (lg ≥ 1024px, < 1280px): 2 panels (230px Nav + Flex Workspace) */}
-      {/* Mobile (< 1024px): 1 panel full-width with slide-out drawers          */}
+      {/* 2. THREE-PANEL CORE DASHBOARD LAYOUT                                 */}
       {/* ==================================================================== */}
-      <div className="flex-1 flex w-full max-w-[1720px] mx-auto p-3 sm:p-4 lg:p-5 gap-4 lg:gap-5 overflow-hidden">
+      <div className="flex-1 flex w-full max-w-[1720px] mx-auto p-3 sm:p-4 lg:p-5 gap-4 sm:gap-5 min-h-[calc(100vh-65px)] overflow-hidden">
         {/* ================================================================== */}
-        {/* PANEL 1: LEFT NAVIGATION (220–240px)                               */}
+        {/* PANEL 1: LEFT NAVIGATION (180–220px on desktop)                    */}
         {/* ================================================================== */}
-        <aside
-          className={`
-            fixed inset-y-0 left-0 z-40 lg:static lg:z-auto
-            w-[230px] shrink-0 bg-white dark:bg-zinc-900 rounded-r-3xl lg:rounded-3xl border-r lg:border border-zinc-200/80 dark:border-zinc-800
-            p-4 flex flex-col justify-between shadow-sm lg:shadow-xs transition-transform duration-200
-            ${isMobileNavOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-          `}
-        >
-          <div className="space-y-4">
-            {/* Mobile Header in Drawer */}
-            <div className="lg:hidden flex items-center justify-between pb-3 border-b border-zinc-100 dark:border-zinc-800">
-              <img
-                src="https://i.ibb.co/gLHGDBz0/1001308108-removebg-preview.png"
-                alt="ace"
-                className="w-[140px] h-auto object-contain dark:brightness-110"
-              />
-              <button
-                type="button"
-                onClick={() => setIsMobileNavOpen(false)}
-                className="p-1 rounded-full text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
-              >
-                <HugeiconsIcon icon={Cancel01Icon} className="h-5 w-5" />
-              </button>
-            </div>
-
-            {/* Navigation List (10 Clean Items) */}
-            <div className="space-y-1">
-              <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
-                Menu
-              </div>
+        <aside className="hidden lg:flex w-48 xl:w-52 shrink-0 flex-col justify-between py-2 pl-1 select-none">
+          <div className="space-y-6">
+            {/* Primary Nav Links */}
+            <nav className="space-y-1">
               {navItems.map((item) => {
                 const isActive = activeNav === item.key;
                 return (
                   <button
                     key={item.key}
                     type="button"
-                    onClick={() => {
-                      setActiveNav(item.key);
-                      setIsMobileNavOpen(false);
-                    }}
+                    onClick={() => setActiveNav(item.key)}
                     className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition-all cursor-pointer ${
                       isActive
-                        ? 'bg-[#966035] text-white shadow-xs'
-                        : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-[#f7f4ee] dark:hover:bg-zinc-800'
+                        ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-xs'
+                        : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-white/80 dark:hover:bg-zinc-900'
                     }`}
                   >
                     <HugeiconsIcon
                       icon={item.icon}
-                      className={`h-4 w-4 shrink-0 ${isActive ? 'text-white' : 'text-zinc-400 dark:text-zinc-500'}`}
+                      className={`h-4 w-4 shrink-0 ${isActive ? 'text-white dark:text-zinc-900' : 'text-zinc-400 dark:text-zinc-500'}`}
                     />
                     <span className="truncate">{item.label}</span>
                   </button>
                 );
               })}
-            </div>
+            </nav>
           </div>
 
-          {/* Bottom Left: Status & Theme Switcher in Left Nav */}
-          <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800 space-y-3">
-            <div className="p-3 rounded-2xl bg-[#f7f4ee] dark:bg-zinc-800/80 border border-[#e6ded3] dark:border-zinc-700/80 space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold text-[#7a4d29] dark:text-amber-300 uppercase tracking-wider">Quota Progress</span>
-                <span className="text-[11px] font-extrabold text-[#7a4d29] dark:text-amber-200">89%</span>
-              </div>
-              <div className="h-1.5 w-full bg-[#e6ded3] dark:bg-zinc-700 rounded-full overflow-hidden">
-                <div className="h-full bg-[#966035] rounded-full" style={{ width: '89%' }} />
-              </div>
-              <div className="text-[10px] text-zinc-500 dark:text-zinc-400 pt-0.5">$285k of $320k target</div>
+          {/* Bottom Theme Mode Switcher & Helper badge */}
+          <div className="pt-4 border-t border-zinc-200/60 dark:border-zinc-800 space-y-3">
+            <div className="flex items-center justify-between px-2">
+              <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">Theme</span>
+              <ThemeToggle />
             </div>
 
-            {/* Quick theme toggle inside left sidebar bottom */}
-            <div className="flex items-center justify-between px-1">
-              <span className="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium">Appearance</span>
-              <ThemeToggle />
+            <div className="bg-[#f7f4ee] dark:bg-zinc-900 rounded-2xl p-3 border border-[#e6ded3] dark:border-zinc-800 space-y-1">
+              <div className="text-[10px] font-bold text-[#7a4d29] dark:text-amber-200 flex items-center gap-1">
+                <HugeiconsIcon icon={SparklesIcon} className="h-3 w-3" />
+                <span>Customer Intelligence</span>
+              </div>
+              <p className="text-[10px] text-zinc-500 dark:text-zinc-400 leading-tight">
+                ace connects conversations into business memory.
+              </p>
             </div>
           </div>
         </aside>
 
-        {/* Mobile Navigation Backdrop */}
+        {/* Mobile Navigation Drawer */}
         {isMobileNavOpen && (
-          <div
-            onClick={() => setIsMobileNavOpen(false)}
-            className="fixed inset-0 z-30 bg-black/40 backdrop-blur-xs lg:hidden"
-          />
+          <div className="fixed inset-0 z-40 lg:hidden flex">
+            <div
+              onClick={() => setIsMobileNavOpen(false)}
+              className="fixed inset-0 bg-black/40 backdrop-blur-xs"
+            />
+            <div className="relative w-64 max-w-full bg-white dark:bg-zinc-900 p-5 shadow-2xl flex flex-col justify-between z-50 animate-slideRight">
+              <div className="space-y-5">
+                <div className="flex items-center justify-between pb-3 border-b border-zinc-100 dark:border-zinc-800">
+                  <div className="text-sm font-bold text-zinc-900 dark:text-white">Navigation</div>
+                  <button
+                    type="button"
+                    onClick={() => setIsMobileNavOpen(false)}
+                    className="p-1 rounded-full text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
+                  >
+                    <HugeiconsIcon icon={Cancel01Icon} className="h-5 w-5" />
+                  </button>
+                </div>
+
+                <nav className="space-y-1">
+                  {navItems.map((item) => {
+                    const isActive = activeNav === item.key;
+                    return (
+                      <button
+                        key={item.key}
+                        type="button"
+                        onClick={() => {
+                          setActiveNav(item.key);
+                          setIsMobileNavOpen(false);
+                        }}
+                        className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition-all cursor-pointer ${
+                          isActive
+                            ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-xs'
+                            : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                        }`}
+                      >
+                        <HugeiconsIcon icon={item.icon} className="h-4 w-4 shrink-0" />
+                        <span>{item.label}</span>
+                      </button>
+                    );
+                  })}
+                </nav>
+              </div>
+
+              <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
+                <span className="text-xs text-zinc-500">Appearance</span>
+                <ThemeToggle />
+              </div>
+            </div>
+          </div>
         )}
 
         {/* ================================================================== */}
@@ -458,7 +472,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
             )}
           </div>
 
-          {/* Central Bottom Action & Input Dock (ACE Assistant) */}
+          {/* Central Bottom Action & Input Dock (Ask ace) */}
           <div className="w-full pt-3 border-t border-zinc-100 dark:border-zinc-800 shrink-0 space-y-2">
             <form
               onSubmit={handleAssistantSubmit}
@@ -468,31 +482,24 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
               <div className="hidden lg:flex items-center space-x-1.5 pl-1.5">
                 <button
                   type="button"
-                  onClick={() => handleOpenAssistant('Find consumers needing follow-up today')}
+                  onClick={() => handleOpenAssistant('What changed across customer conversations recently?')}
                   className="px-2.5 py-1 rounded-full bg-white dark:bg-zinc-900 text-[11px] font-semibold text-zinc-700 dark:text-zinc-200 border border-[#e6ded3] dark:border-zinc-700 shadow-2xs hover:text-[#966035] hover:border-[#966035] transition-colors cursor-pointer"
                 >
-                  Find consumer
+                  What changed?
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleOpenAssistant('Check my highest value deal in negotiation')}
+                  onClick={() => handleOpenAssistant('Summarize the top customer insights learned recently.')}
                   className="px-2.5 py-1 rounded-full bg-white dark:bg-zinc-900 text-[11px] font-semibold text-zinc-700 dark:text-zinc-200 border border-[#e6ded3] dark:border-zinc-700 shadow-2xs hover:text-[#966035] hover:border-[#966035] transition-colors cursor-pointer"
                 >
-                  Check deal
+                  Customer insights
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleOpenAssistant('Create a follow-up task for tomorrow morning')}
+                  onClick={() => handleOpenAssistant('Show highlights from recent customer conversations and emails.')}
                   className="px-2.5 py-1 rounded-full bg-white dark:bg-zinc-900 text-[11px] font-semibold text-zinc-700 dark:text-zinc-200 border border-[#e6ded3] dark:border-zinc-700 shadow-2xs hover:text-[#966035] hover:border-[#966035] transition-colors cursor-pointer"
                 >
-                  Create task
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleOpenAssistant('Schedule a prep meeting for executive pricing review')}
-                  className="px-2.5 py-1 rounded-full bg-white dark:bg-zinc-900 text-[11px] font-semibold text-zinc-700 dark:text-zinc-200 border border-[#e6ded3] dark:border-zinc-700 shadow-2xs hover:text-[#966035] hover:border-[#966035] transition-colors cursor-pointer"
-                >
-                  Schedule meeting
+                  Recent conversations
                 </button>
               </div>
 
@@ -501,14 +508,14 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                 type="text"
                 value={assistantInput}
                 onChange={(e) => setAssistantInput(e.target.value)}
-                placeholder="Ask ACE about a consumer, deal, or next step..."
+                placeholder="Ask ace anything about your customers..."
                 className="flex-1 bg-transparent text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none px-2 placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
               />
 
-              {/* Submit Button (Warm Brown) */}
+              {/* Submit Button */}
               <button
                 type="submit"
-                title="Ask ACE"
+                title="Ask ace"
                 className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#966035] hover:bg-[#83532c] active:scale-95 text-white flex items-center justify-center transition-all shadow-xs cursor-pointer shrink-0"
               >
                 <HugeiconsIcon icon={ArrowUp01Icon} className="h-4 w-4 stroke-2" />
@@ -517,7 +524,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 
             {/* Lower site bar with Theme Switcher for mobile and responsive footer */}
             <div className="flex items-center justify-between px-2 pt-1 text-[11px] text-zinc-400 dark:text-zinc-500">
-              <span className="truncate">ace • Commercial Sales Workspace</span>
+              <span className="truncate">ace • Customer Intelligence & Business Memory</span>
               <div className="flex items-center space-x-2">
                 <ThemeToggle className="sm:hidden" />
               </div>
@@ -537,7 +544,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
           {/* Mobile Close Button */}
           {isRightContextOpenMobile && (
             <div className="xl:hidden flex items-center justify-between pb-2 border-b border-zinc-100 dark:border-zinc-800">
-              <span className="text-xs font-bold text-zinc-900 dark:text-white">Context Details</span>
+              <span className="text-xs font-bold text-zinc-900 dark:text-white">Customer Context</span>
               <button
                 type="button"
                 onClick={() => setIsRightContextOpenMobile(false)}
@@ -548,16 +555,16 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
             </div>
           )}
 
-          {/* Card 1: Selected Consumer Details (Dynamic Context) */}
+          {/* Card 1: Selected Customer Context & Intelligence */}
           {selectedConsumer && (
             <div className="bg-white dark:bg-zinc-900 rounded-3xl p-5 border border-zinc-200/80 dark:border-zinc-800 shadow-xs space-y-4 hover:shadow-sm transition-shadow">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <div className="w-2 h-2 rounded-full bg-[#966035]" />
-                  <span className="text-xs font-bold text-zinc-900 dark:text-white">Selected Consumer</span>
+                  <span className="text-xs font-bold text-zinc-900 dark:text-white">Customer Context</span>
                 </div>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#f7f4ee] dark:bg-zinc-800 text-[#7a4d29] dark:text-amber-200 border border-[#e6ded3] dark:border-zinc-700">
-                  {selectedConsumer.status}
+                  {selectedConsumer.industry || 'Account'}
                 </span>
               </div>
 
@@ -572,159 +579,92 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                 </div>
               </div>
 
-              {/* Quick Info Grid */}
-              <div className="grid grid-cols-2 gap-2">
-                <div className="p-2.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/60 dark:border-zinc-800">
-                  <div className="text-[10px] uppercase font-semibold tracking-wider text-zinc-400 dark:text-zinc-500">Deal Value</div>
-                  <div className="text-sm font-extrabold text-zinc-900 dark:text-white">${selectedConsumer.dealValue.toLocaleString()}</div>
-                </div>
-                <div className="p-2.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/60 dark:border-zinc-800">
-                  <div className="text-[10px] uppercase font-semibold tracking-wider text-zinc-400 dark:text-zinc-500">Last Contact</div>
-                  <div className="text-xs font-bold text-zinc-800 dark:text-zinc-200 truncate">{selectedConsumer.lastContact}</div>
-                </div>
-              </div>
-
-              {/* Next Step Box */}
+              {/* What ace knows box */}
               <div className="space-y-1 bg-[#f7f4ee] dark:bg-zinc-800/80 border border-[#e6ded3] dark:border-zinc-700/80 p-3 rounded-2xl">
-                <div className="text-[10px] uppercase font-bold text-[#7a4d29] dark:text-amber-300 tracking-wider">Next Step</div>
-                <div className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">{selectedConsumer.nextAction}</div>
-                <div className="text-[10px] text-zinc-500 dark:text-zinc-400 pt-0.5">{selectedConsumer.nextActionDate}</div>
+                <div className="text-[10px] uppercase font-bold text-[#7a4d29] dark:text-amber-300 tracking-wider flex items-center gap-1">
+                  <HugeiconsIcon icon={SparklesIcon} className="h-3 w-3" />
+                  <span>What ace knows</span>
+                </div>
+                <div className="text-xs text-zinc-800 dark:text-zinc-200 leading-relaxed">
+                  {selectedConsumer.notes || `${selectedConsumer.name} is aligned on technical scope and reviewing multi-year pricing terms.`}
+                </div>
+                <div className="text-[10px] text-zinc-400 pt-1">Last touch: {selectedConsumer.lastContact}</div>
               </div>
 
               {/* Action Buttons */}
               <div className="flex items-center gap-2 pt-1">
                 <button
                   type="button"
-                  onClick={() => handleOpenAssistant(`What talk track should I use with ${selectedConsumer.name} at ${selectedConsumer.company}?`)}
-                  className="flex-1 py-2 rounded-full bg-[#966035] hover:bg-[#83532c] text-white text-xs font-bold shadow-xs transition-colors cursor-pointer text-center"
+                  onClick={() => handleOpenAssistant(`What talk track and insights should I use with ${selectedConsumer.name} at ${selectedConsumer.company}?`)}
+                  className="w-full py-2 rounded-full bg-[#966035] hover:bg-[#83532c] text-white text-xs font-bold shadow-xs transition-colors cursor-pointer text-center"
                 >
-                  Ask ACE
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    consumerStore.addTask({
-                      title: `Follow up with ${selectedConsumer.name}`,
-                      relatedTo: selectedConsumer.company,
-                      dueDate: 'Tomorrow',
-                      priority: 'High',
-                      type: 'Call',
-                    });
-                    setActiveNav('tasks');
-                  }}
-                  className="px-3 py-2 rounded-full bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
-                >
-                  + Task
+                  Ask ace about customer
                 </button>
               </div>
             </div>
           )}
 
-          {/* Card 2: Performance Overview */}
+          {/* Card 2: Emerging Cross-Customer Patterns */}
           <div className="bg-white dark:bg-zinc-900 rounded-3xl p-5 border border-zinc-200/80 dark:border-zinc-800 shadow-xs space-y-3.5 hover:shadow-sm transition-shadow">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-zinc-900 dark:text-white">Performance Overview</span>
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                On Target
+              <span className="text-xs font-bold text-zinc-900 dark:text-white">Emerging Patterns</span>
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                Pattern Detected
               </span>
             </div>
 
-            <div className="space-y-2.5 text-xs">
-              <div className="flex items-center justify-between">
-                <span className="text-zinc-500 dark:text-zinc-400 font-medium">Monthly Sales Target:</span>
-                <span className="font-bold text-zinc-900 dark:text-white">$285k / $320k</span>
-              </div>
-              <div className="h-2 w-full bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-                <div className="h-full bg-[#966035] rounded-full" style={{ width: '89%' }} />
-              </div>
-
-              <div className="flex items-center justify-between pt-1">
-                <span className="text-zinc-500 dark:text-zinc-400 font-medium">Win Rate:</span>
-                <span className="font-bold text-emerald-700 dark:text-emerald-400">74.2%</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-zinc-500 dark:text-zinc-400 font-medium">Average Deal Cycle:</span>
-                <span className="font-bold text-zinc-900 dark:text-white">18.5 days</span>
-              </div>
+            <div className="space-y-2 text-xs">
+              <p className="text-zinc-700 dark:text-zinc-300 leading-relaxed">
+                <strong className="text-zinc-900 dark:text-white font-semibold">Timeline over Features:</strong> Multiple clients cited implementation speed as their primary decision driver.
+              </p>
+              <button
+                type="button"
+                onClick={() => handleOpenAssistant('Tell me more about customer demands for faster onboarding timelines.')}
+                className="text-[11px] font-semibold text-[#966035] hover:text-[#7a4d29] dark:text-amber-300 flex items-center gap-1 cursor-pointer pt-0.5"
+              >
+                <span>Ask ace about this pattern</span>
+                <HugeiconsIcon icon={ArrowRight01Icon} className="h-3 w-3" />
+              </button>
             </div>
           </div>
 
-          {/* Card 3: Upcoming Tasks Checklist */}
+          {/* Card 3: Recent Customer Conversations */}
           <div className="bg-white dark:bg-zinc-900 rounded-3xl p-5 border border-zinc-200/80 dark:border-zinc-800 shadow-xs space-y-3 hover:shadow-sm transition-shadow">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-zinc-900 dark:text-white">Upcoming Tasks</span>
+              <span className="text-xs font-bold text-zinc-900 dark:text-white">Recent Conversations</span>
               <button
                 type="button"
-                onClick={() => setActiveNav('tasks')}
-                className="text-[11px] font-semibold text-[#966035] hover:text-[#7a4d29] dark:text-amber-300 dark:hover:text-amber-200 cursor-pointer"
+                onClick={() => setActiveNav('engagement')}
+                className="text-[11px] font-semibold text-[#966035] hover:text-[#7a4d29] dark:text-amber-300 cursor-pointer"
               >
                 View all
               </button>
             </div>
 
-            <div className="space-y-2">
-              {tasks.slice(0, 3).map((task) => (
-                <div
-                  key={task.id}
-                  onClick={() => consumerStore.toggleTask(task.id)}
-                  className="flex items-start space-x-2.5 p-2 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors cursor-pointer text-xs"
-                >
-                  <button
-                    type="button"
-                    className={`w-4 h-4 rounded-sm border flex items-center justify-center mt-0.5 shrink-0 ${
-                      task.completed
-                        ? 'bg-[#966035] border-[#966035] text-white'
-                        : 'border-zinc-300 dark:border-zinc-600 hover:border-[#966035]'
-                    }`}
-                  >
-                    {task.completed && <HugeiconsIcon icon={CheckmarkCircle02Icon} className="h-3 w-3" />}
-                  </button>
-                  <div className="min-w-0">
-                    <div className={`font-semibold truncate ${task.completed ? 'line-through text-zinc-400 dark:text-zinc-500' : 'text-zinc-800 dark:text-zinc-200'}`}>
-                      {task.title}
-                    </div>
-                    <div className="text-[10px] text-zinc-400 dark:text-zinc-500">{task.dueDate}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Card 4: Recent Activity Stream */}
-          <div className="bg-white dark:bg-zinc-900 rounded-3xl p-5 border border-zinc-200/80 dark:border-zinc-800 shadow-xs space-y-3 hover:shadow-sm transition-shadow">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-zinc-900 dark:text-white">Recent Activity</span>
-              <span className="text-[10px] text-zinc-400 dark:text-zinc-500">Live</span>
-            </div>
-
-            <div className="space-y-3 text-xs">
-              <div className="flex items-start space-x-2.5">
+            <div className="space-y-2.5 text-xs">
+              <div
+                onClick={() => handleOpenAssistant('Summarize what Sarah Chen mentioned in our latest quote discussion.')}
+                className="flex items-start space-x-2.5 p-2 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+              >
                 <div className="w-6 h-6 rounded-full bg-[#f7f4ee] dark:bg-zinc-800 text-[#966035] dark:text-amber-300 border border-[#e6ded3] dark:border-zinc-700 flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">
                   <HugeiconsIcon icon={Mail01Icon} className="h-3 w-3" />
                 </div>
-                <div>
-                  <div className="font-semibold text-zinc-900 dark:text-white">Sent revised 3-year quote</div>
-                  <div className="text-[10px] text-zinc-400 dark:text-zinc-500">Sarah Chen • 25m ago</div>
+                <div className="min-w-0">
+                  <div className="font-semibold text-zinc-900 dark:text-white truncate">Sent revised multi-year terms</div>
+                  <div className="text-[10px] text-zinc-400">Sarah Chen • 25m ago</div>
                 </div>
               </div>
 
-              <div className="flex items-start space-x-2.5">
+              <div
+                onClick={() => handleOpenAssistant('Summarize the compliance requirements Marcus Vance discussed.')}
+                className="flex items-start space-x-2.5 p-2 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+              >
                 <div className="w-6 h-6 rounded-full bg-[#f7f4ee] dark:bg-zinc-800 text-[#966035] dark:text-amber-300 border border-[#e6ded3] dark:border-zinc-700 flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">
                   <HugeiconsIcon icon={CallIcon} className="h-3 w-3" />
                 </div>
-                <div>
-                  <div className="font-semibold text-zinc-900 dark:text-white">Completed compliance sync</div>
-                  <div className="text-[10px] text-zinc-400 dark:text-zinc-500">Marcus Vance • 2h ago</div>
-                </div>
-              </div>
-
-              <div className="flex items-start space-x-2.5">
-                <div className="w-6 h-6 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">
-                  <HugeiconsIcon icon={CheckmarkCircle02Icon} className="h-3 w-3" />
-                </div>
-                <div>
-                  <div className="font-semibold text-zinc-900 dark:text-white">Signed 2-year partnership</div>
-                  <div className="text-[10px] text-zinc-400 dark:text-zinc-500">Beacon Retail • Yesterday</div>
+                <div className="min-w-0">
+                  <div className="font-semibold text-zinc-900 dark:text-white truncate">Completed compliance sync</div>
+                  <div className="text-[10px] text-zinc-400">Marcus Vance • 2h ago</div>
                 </div>
               </div>
             </div>

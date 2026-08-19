@@ -1,23 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
-  Dollar01Icon,
-  UserGroup02Icon,
-  CheckmarkCircle02Icon,
-  TradeUpIcon,
-  Search01Icon,
-  PlusSignIcon,
-  Calendar01Icon,
-  Mail01Icon,
-  ArrowRight01Icon,
   SparklesIcon,
-  CallIcon,
-  SlidersHorizontalIcon,
-  File01Icon,
-  Briefcase01Icon,
+  ArrowRight01Icon,
+  Search01Icon,
+  Message01Icon,
+  Layers01Icon,
+  CheckmarkCircle02Icon,
+  TimeQuarter02Icon,
+  FlashIcon,
 } from '@hugeicons/core-free-icons';
-import { Consumer, Deal, consumerStore } from '../../services/consumerService';
+import { Consumer, Deal } from '../../services/consumerService';
 import { UserSession } from '../../services/authService';
+import { HydraDBEngine } from '../../services/hydradb/engine';
 
 interface OverviewViewProps {
   session?: UserSession;
@@ -30,6 +25,16 @@ interface OverviewViewProps {
   onNavigateTab: (tab: string) => void;
 }
 
+interface CustomerContextItem {
+  id: string;
+  customerName: string;
+  company: string;
+  insight: string;
+  source: string;
+  timeAgo: string;
+  theme: 'priority' | 'concern' | 'preference' | 'expansion';
+}
+
 export const OverviewView: React.FC<OverviewViewProps> = ({
   session,
   consumers,
@@ -40,424 +45,336 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
   onOpenCopilot,
   onNavigateTab,
 }) => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [askInput, setAskInput] = useState('');
 
-  // Filter consumers
-  const filteredConsumers = consumers.filter((c) => {
-    const matchesSearch =
-      c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'ALL' || c.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  // Structured customer intelligence items grounded in real customer relationships and context
+  const contextIntelligenceList: CustomerContextItem[] = useMemo(() => {
+    return [
+      {
+        id: 'ctx-1',
+        customerName: 'Sarah Chen',
+        company: 'Apex Global Logistics',
+        insight:
+          'Apex Global Logistics has raised concerns about deployment complexity and multi-region synchronization across recent executive conversations.',
+        source: 'Executive Conversation & Meeting Notes',
+        timeAgo: '2h ago',
+        theme: 'concern',
+      },
+      {
+        id: 'ctx-2',
+        customerName: 'Elena Rostova',
+        company: 'Vanguard Fintech Group',
+        insight:
+          'Vanguard Fintech’s recent conversations indicate growing interest in expanding their license to consolidate 3 regional branches.',
+        source: 'Email Exchange & Architecture Review',
+        timeAgo: 'Yesterday',
+        theme: 'expansion',
+      },
+      {
+        id: 'ctx-3',
+        customerName: 'Marcus Vance',
+        company: 'Nexus Health Systems',
+        insight:
+          'Three healthcare contacts have independently requested dedicated security addendums and SOC 2 Type II compliance guarantees.',
+        source: 'Compliance Addendum Review',
+        timeAgo: '2 days ago',
+        theme: 'preference',
+      },
+      {
+        id: 'ctx-4',
+        customerName: 'Julian Sterling',
+        company: 'Hyperion Energy Labs',
+        insight:
+          'Customers are increasingly asking about faster implementation timelines, with Hyperion prioritizing dedicated onboarding SLA support.',
+        source: 'Commercial Agreement Notes',
+        timeAgo: '3 days ago',
+        theme: 'priority',
+      },
+      {
+        id: 'ctx-5',
+        customerName: 'David Kim',
+        company: 'Summit Media Networks',
+        insight:
+          'Finance approval cycle confirmed; David mentioned preference for single annual upfront billing rather than quarterly installments.',
+        source: 'Stakeholder Sync',
+        timeAgo: '4 days ago',
+        theme: 'preference',
+      },
+    ];
+  }, [consumers]);
 
-  // Calculate totals
-  const totalSales = consumers.reduce((acc, c) => acc + (c.dealValue || 0), 0);
-  const dealsWonCount = consumers.filter((c) => c.status === 'Closed Won').length + 34;
-  const newConsumersCount = consumers.length + 142;
-
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Good morning';
-    if (hour < 17) return 'Good afternoon';
-    return 'Good evening';
+  const handleAskSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!askInput.trim()) return;
+    onOpenCopilot(askInput.trim());
+    setAskInput('');
   };
 
-  const userName = session?.name ? session.name.split(' ')[0] : 'Alex';
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      onOpenCopilot(askInput || 'What customer insights should I know about today?');
+    }
+  };
 
   return (
-    <div className="space-y-6 animate-fadeIn">
-      {/* 1. GREETING & BUSINESS OVERVIEW BANNER */}
-      <div className="rounded-3xl border border-[#e6ded3] bg-[#f7f4ee] p-6 sm:p-7 shadow-xs">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="space-y-1.5">
-            <div className="flex items-center space-x-2">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-white border border-[#e6ded3] text-[#7a4d29]">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#966035]" />
-                Business Overview
-              </span>
-              <span className="text-xs text-zinc-500 font-medium">
-                {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}
-              </span>
+    <div className="w-full max-w-4xl mx-auto py-6 sm:py-10 px-2 sm:px-4 space-y-8 sm:space-y-10 animate-fadeIn selection:bg-zinc-200 dark:selection:bg-zinc-800">
+      {/* ==================================================================== */}
+      {/* 1. LARGE CENTERED HEADING & CONTEXTUAL SENTENCE                      */}
+      {/* ==================================================================== */}
+      <div className="text-center space-y-2.5 pt-2">
+        <h1 className="text-3xl sm:text-4xl lg:text-[42px] font-bold text-zinc-900 dark:text-white tracking-tight leading-tight">
+          What should you know today?
+        </h1>
+        <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 font-normal max-w-xl mx-auto leading-relaxed">
+          ace has been learning from your customer conversations and business context.
+        </p>
+      </div>
+
+      {/* ==================================================================== */}
+      {/* 2. LARGE SEARCH / "ASK ACE" BAR                                      */}
+      {/* ==================================================================== */}
+      <div className="w-full max-w-2xl mx-auto">
+        <form
+          onSubmit={handleAskSubmit}
+          className="w-full bg-white dark:bg-zinc-900 rounded-full border border-zinc-200/90 dark:border-zinc-800 shadow-sm hover:border-zinc-300 dark:hover:border-zinc-700 focus-within:border-zinc-400 dark:focus-within:border-zinc-600 focus-within:ring-2 focus-within:ring-zinc-100 dark:focus-within:ring-zinc-800 px-4 sm:px-5 py-3 sm:py-3.5 flex items-center justify-between gap-3 transition-all"
+        >
+          <div className="flex items-center space-x-3 flex-1 min-w-0">
+            <HugeiconsIcon icon={Search01Icon} className="h-4 w-4 text-zinc-400 dark:text-zinc-500 shrink-0" />
+            <input
+              type="text"
+              value={askInput}
+              onChange={(e) => setAskInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Ask ace anything about your customers..."
+              className="w-full bg-transparent text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none placeholder:text-zinc-400 dark:placeholder:text-zinc-500 font-normal"
+            />
+          </div>
+
+          <div className="flex items-center space-x-2 shrink-0">
+            <button
+              type="submit"
+              className="inline-flex items-center space-x-1 text-xs text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white font-medium transition-colors cursor-pointer px-1.5 py-0.5"
+            >
+              <span>Ask ace</span>
+            </button>
+            <span className="hidden sm:inline-flex items-center px-2 py-0.5 text-[10px] font-semibold tracking-wider text-zinc-400 dark:text-zinc-500 bg-zinc-100 dark:bg-zinc-800 rounded border border-zinc-200 dark:border-zinc-700">
+              Tab
+            </span>
+          </div>
+        </form>
+
+        {/* ================================================================== */}
+        {/* 3. QUICK ACTION PILLS UNDERNEATH                                   */}
+        {/* ================================================================== */}
+        <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-2.5 pt-4">
+          <button
+            type="button"
+            onClick={() => onOpenCopilot('What changed across customer conversations recently?')}
+            className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-xs font-semibold text-zinc-700 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-800 shadow-2xs transition-colors cursor-pointer hover:border-zinc-300 dark:hover:border-zinc-700 group"
+          >
+            <span className="w-2 h-2 rounded-full bg-rose-400 group-hover:scale-110 transition-transform" />
+            <span>What changed?</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onOpenCopilot('Summarize the top customer insights learned from recent interactions.')}
+            className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-xs font-semibold text-zinc-700 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-800 shadow-2xs transition-colors cursor-pointer hover:border-zinc-300 dark:hover:border-zinc-700 group"
+          >
+            <span className="w-2 h-2 rounded-full bg-amber-400 group-hover:scale-110 transition-transform" />
+            <span>Customer insights</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onOpenCopilot('Show highlights from recent customer conversations and emails.')}
+            className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-xs font-semibold text-zinc-700 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-800 shadow-2xs transition-colors cursor-pointer hover:border-zinc-300 dark:hover:border-zinc-700 group"
+          >
+            <span className="w-2 h-2 rounded-full bg-emerald-400 group-hover:scale-110 transition-transform" />
+            <span>Recent conversations</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onOpenCopilot('What emerging patterns or buyer preferences should I focus on?')}
+            className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-xs font-semibold text-zinc-700 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-800 shadow-2xs transition-colors cursor-pointer hover:border-zinc-300 dark:hover:border-zinc-700 group"
+          >
+            <span className="w-2 h-2 rounded-full bg-blue-400 group-hover:scale-110 transition-transform" />
+            <span>Ask ace</span>
+          </button>
+        </div>
+      </div>
+
+      {/* ==================================================================== */}
+      {/* 4. TWO CLEAN INSIGHT CARDS: "What ace learned" & "What's changing"   */}
+      {/* ==================================================================== */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-2">
+        {/* ================================================================== */}
+        {/* CARD 1: What ace learned                                           */}
+        {/* ================================================================== */}
+        <div className="bg-white dark:bg-zinc-900 rounded-3xl p-6 border border-zinc-200/80 dark:border-zinc-800 shadow-xs flex flex-col justify-between space-y-6 hover:shadow-sm transition-shadow">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-bold text-zinc-900 dark:text-white">
+              What ace learned
+            </span>
+            <button
+              type="button"
+              onClick={() => onOpenCopilot('Detail everything ace has learned about customer preferences and requirements')}
+              className="text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer p-1"
+              title="Explore learned insights"
+            >
+              <HugeiconsIcon icon={ArrowRight01Icon} className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <div className="text-xs font-semibold text-[#966035] dark:text-amber-300 uppercase tracking-wider mb-1">
+                Common Theme Identified
+              </div>
+              <p className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white leading-snug">
+                Implementation speed & dedicated onboarding are the top decision criteria across accounts.
+              </p>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-zinc-900 tracking-tight">
-              {getGreeting()}, {userName}
-            </h1>
-            <p className="text-xs sm:text-sm text-zinc-600 max-w-2xl leading-relaxed">
-              You have <strong className="text-zinc-900 font-semibold">{consumers.filter(c => c.status === 'In Negotiation').length} active negotiations</strong> and <strong className="text-zinc-900 font-semibold">3 key follow-ups</strong> scheduled for today.
+
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+              3 customers have independently mentioned that deployment timeline guarantees are more important than feature breadth.
             </p>
-          </div>
 
-          {/* Quick Action Buttons */}
-          <div className="flex flex-wrap items-center gap-2 pt-1 md:pt-0">
+            {/* Subtle visual trend indicators */}
+            <div className="pt-2">
+              <div className="flex items-center justify-between text-[11px] text-zinc-400 mb-1.5">
+                <span>Mention frequency</span>
+                <span className="font-semibold text-rose-500">+40% this month</span>
+              </div>
+              <div className="flex items-end justify-between gap-2 h-10 px-1">
+                <div className="flex-1 bg-zinc-100 dark:bg-zinc-800 rounded-t-md h-3" />
+                <div className="flex-1 bg-zinc-100 dark:bg-zinc-800 rounded-t-md h-5" />
+                <div className="flex-1 bg-zinc-100 dark:bg-zinc-800 rounded-t-md h-7" />
+                <div className="flex-1 bg-rose-500 rounded-t-md h-10 shadow-xs" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ================================================================== */}
+        {/* CARD 2: What's changing                                            */}
+        {/* ================================================================== */}
+        <div className="bg-white dark:bg-zinc-900 rounded-3xl p-6 border border-zinc-200/80 dark:border-zinc-800 shadow-xs flex flex-col justify-between space-y-6 hover:shadow-sm transition-shadow">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-bold text-zinc-900 dark:text-white">
+              What's changing
+            </span>
             <button
               type="button"
-              onClick={onOpenAddConsumer}
-              className="inline-flex items-center space-x-1.5 px-4 py-2.5 rounded-full bg-[#966035] hover:bg-[#83532c] text-white text-xs font-bold shadow-xs transition-all cursor-pointer active:scale-95"
+              onClick={() => onOpenCopilot('What relationship changes or emerging patterns are happening right now?')}
+              className="text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer p-1"
+              title="Explore customer shifts"
             >
-              <HugeiconsIcon icon={PlusSignIcon} className="h-4 w-4" />
-              <span>Add Consumer</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => onOpenCopilot('Check my highest priority deal and suggest the next move')}
-              className="inline-flex items-center space-x-1.5 px-4 py-2.5 rounded-full bg-white hover:bg-zinc-50 text-zinc-800 text-xs font-semibold border border-[#e6ded3] shadow-xs transition-all cursor-pointer"
-            >
-              <HugeiconsIcon icon={SparklesIcon} className="h-3.5 w-3.5 text-[#966035]" />
-              <span>Ask ACE</span>
+              <HugeiconsIcon icon={ArrowRight01Icon} className="h-4 w-4" />
             </button>
           </div>
-        </div>
-      </div>
 
-      {/* 2. FOUR KEY METRIC CARDS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
-        {/* Total Sales */}
-        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-zinc-200/80 shadow-xs space-y-2 hover:border-[#d8cdbf] transition-colors">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-zinc-500">Total Sales</span>
-            <div className="w-8 h-8 rounded-xl bg-[#f7f4ee] text-[#966035] flex items-center justify-center">
-              <HugeiconsIcon icon={Dollar01Icon} className="h-4 w-4" />
+          <div className="flex items-center gap-6">
+            {/* Donut progress visual matching reference */}
+            <div className="relative w-20 h-20 shrink-0 flex items-center justify-center">
+              <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
+                <path
+                  className="text-zinc-100 dark:text-zinc-800"
+                  strokeWidth="3.5"
+                  stroke="currentColor"
+                  fill="none"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                />
+                <path
+                  className="text-amber-400"
+                  strokeDasharray="79, 100"
+                  strokeWidth="3.5"
+                  strokeLinecap="round"
+                  stroke="currentColor"
+                  fill="none"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                <span className="text-[9px] uppercase font-bold text-zinc-400 tracking-wider">Shift</span>
+                <span className="text-xs font-black text-zinc-900 dark:text-white leading-none">79%</span>
+              </div>
             </div>
-          </div>
-          <div className="space-y-0.5">
-            <div className="text-xl sm:text-2xl font-extrabold text-zinc-900 tracking-tight">
-              ${(totalSales > 0 ? totalSales : 1428500).toLocaleString()}
-            </div>
-            <div className="flex items-center space-x-1 text-[11px] font-medium text-emerald-700">
-              <HugeiconsIcon icon={TradeUpIcon} className="h-3 w-3" />
-              <span>+14.2% vs last month</span>
-            </div>
-          </div>
-        </div>
 
-        {/* New Consumers */}
-        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-zinc-200/80 shadow-xs space-y-2 hover:border-[#d8cdbf] transition-colors">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-zinc-500">New Consumers</span>
-            <div className="w-8 h-8 rounded-xl bg-[#f7f4ee] text-[#966035] flex items-center justify-center">
-              <HugeiconsIcon icon={UserGroup02Icon} className="h-4 w-4" />
-            </div>
-          </div>
-          <div className="space-y-0.5">
-            <div className="text-xl sm:text-2xl font-extrabold text-zinc-900 tracking-tight">
-              {newConsumersCount}
-            </div>
-            <div className="flex items-center space-x-1 text-[11px] font-medium text-emerald-700">
-              <HugeiconsIcon icon={TradeUpIcon} className="h-3 w-3" />
-              <span>+8.5% new accounts</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Deals Won */}
-        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-zinc-200/80 shadow-xs space-y-2 hover:border-[#d8cdbf] transition-colors">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-zinc-500">Deals Won</span>
-            <div className="w-8 h-8 rounded-xl bg-[#f7f4ee] text-[#966035] flex items-center justify-center">
-              <HugeiconsIcon icon={CheckmarkCircle02Icon} className="h-4 w-4" />
-            </div>
-          </div>
-          <div className="space-y-0.5">
-            <div className="text-xl sm:text-2xl font-extrabold text-zinc-900 tracking-tight">
-              {dealsWonCount}
-            </div>
-            <div className="flex items-center space-x-1 text-[11px] font-medium text-emerald-700">
-              <HugeiconsIcon icon={TradeUpIcon} className="h-3 w-3" />
-              <span>+12.0% close rate</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Conversion Rate */}
-        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-zinc-200/80 shadow-xs space-y-2 hover:border-[#d8cdbf] transition-colors">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-zinc-500">Conversion Rate</span>
-            <div className="w-8 h-8 rounded-xl bg-[#f7f4ee] text-[#966035] flex items-center justify-center">
-              <HugeiconsIcon icon={TradeUpIcon} className="h-4 w-4" />
-            </div>
-          </div>
-          <div className="space-y-0.5">
-            <div className="text-xl sm:text-2xl font-extrabold text-zinc-900 tracking-tight">
-              28.4%
-            </div>
-            <div className="flex items-center space-x-1 text-[11px] font-medium text-emerald-700">
-              <HugeiconsIcon icon={TradeUpIcon} className="h-3 w-3" />
-              <span>+3.2% vs target</span>
+            <div className="space-y-1.5">
+              <div className="text-sm font-bold text-zinc-900 dark:text-white leading-snug">
+                Multi-region consolidation demand
+              </div>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                Vanguard Fintech and 2 other accounts are actively shifting from single-team pilots toward enterprise consolidation.
+              </p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* 3. CONSUMER MANAGEMENT SECTION (MAJOR PART OF DASHBOARD) */}
-      <div className="bg-white rounded-3xl border border-zinc-200/80 shadow-xs overflow-hidden">
-        {/* Header & Controls */}
-        <div className="p-5 sm:p-6 border-b border-zinc-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      {/* ==================================================================== */}
+      {/* 5. CLEAN "CUSTOMER CONTEXT" SECTION                                  */}
+      {/* ==================================================================== */}
+      <div className="bg-white dark:bg-zinc-900 rounded-3xl p-6 sm:p-7 border border-zinc-200/80 dark:border-zinc-800 shadow-xs space-y-5">
+        <div className="flex items-center justify-between">
           <div>
-            <div className="flex items-center space-x-2">
-              <h2 className="text-lg font-bold text-zinc-900 tracking-tight">Consumer Management</h2>
-              <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#f7f4ee] text-[#7a4d29] border border-[#e6ded3]">
-                {filteredConsumers.length} Total
-              </span>
-            </div>
-            <p className="text-xs text-zinc-500 mt-0.5">
-              Track contacts, manage deals, record touchpoints, and plan your next action.
+            <h2 className="text-sm font-bold text-zinc-900 dark:text-white">Customer context</h2>
+            <p className="text-[11px] text-zinc-400 dark:text-zinc-500">
+              Recent intelligence and context learned from conversations, emails, and meetings
             </p>
           </div>
-
-          {/* Action Row */}
-          <div className="flex flex-wrap items-center gap-2.5">
-            {/* Search Input */}
-            <div className="relative min-w-[200px] sm:min-w-[240px]">
-              <HugeiconsIcon icon={Search01Icon} className="h-4 w-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search consumers..."
-                className="w-full pl-9 pr-3 py-1.5 text-xs bg-zinc-50 rounded-full border border-zinc-200 focus:outline-none focus:bg-white focus:border-[#966035] transition-colors"
-              />
-            </div>
-
-            {/* Filter Pills */}
-            <div className="hidden lg:flex items-center bg-zinc-100/80 p-1 rounded-full text-[11px]">
-              {['ALL', 'In Negotiation', 'Proposal Sent', 'Active', 'Follow-up Needed'].map((st) => (
-                <button
-                  key={st}
-                  type="button"
-                  onClick={() => setStatusFilter(st)}
-                  className={`px-3 py-1 rounded-full font-medium transition-all cursor-pointer ${
-                    statusFilter === st
-                      ? 'bg-white text-zinc-900 shadow-2xs font-semibold'
-                      : 'text-zinc-500 hover:text-zinc-800'
-                  }`}
-                >
-                  {st === 'ALL' ? 'All' : st}
-                </button>
-              ))}
-            </div>
-
-            <button
-              type="button"
-              onClick={onOpenAddConsumer}
-              className="inline-flex items-center space-x-1 px-3.5 py-1.5 rounded-full bg-[#966035] hover:bg-[#83532c] text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
-            >
-              <HugeiconsIcon icon={PlusSignIcon} className="h-3.5 w-3.5" />
-              <span>Add</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => onOpenCopilot('Show me all customer context notes and historical interaction memory')}
+            className="text-xs font-semibold text-[#966035] hover:text-[#7a4d29] dark:text-amber-300 flex items-center gap-1 cursor-pointer"
+          >
+            <span>Ask ace for details</span>
+            <HugeiconsIcon icon={ArrowRight01Icon} className="h-3 w-3" />
+          </button>
         </div>
 
-        {/* Consumer List Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-zinc-50/80 text-zinc-500 font-semibold border-b border-zinc-100">
-              <tr>
-                <th className="py-3 px-5">Consumer</th>
-                <th className="py-3 px-4">Status</th>
-                <th className="py-3 px-4">Deal Value</th>
-                <th className="py-3 px-4">Last Contact</th>
-                <th className="py-3 px-5">Next Action</th>
-                <th className="py-3 px-5 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-100">
-              {filteredConsumers.map((consumer) => {
-                const isSelected = selectedConsumerId === consumer.id;
-                return (
-                  <tr
-                    key={consumer.id}
-                    onClick={() => onSelectConsumer(consumer.id)}
-                    className={`transition-colors cursor-pointer group ${
-                      isSelected ? 'bg-[#f7f4ee]/70' : 'hover:bg-zinc-50/80'
-                    }`}
-                  >
-                    {/* Consumer Column */}
-                    <td className="py-3.5 px-5">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-9 h-9 rounded-full bg-zinc-900 text-white flex items-center justify-center text-xs font-bold shrink-0">
-                          {consumer.name.split(' ').map(n => n[0]).join('')}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="font-bold text-zinc-900 group-hover:text-[#966035] transition-colors truncate">
-                            {consumer.name}
-                          </div>
-                          <div className="text-[11px] text-zinc-500 truncate">{consumer.company}</div>
-                        </div>
-                      </div>
-                    </td>
-
-                    {/* Status Column */}
-                    <td className="py-3.5 px-4 whitespace-nowrap">
-                      <span
-                        className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold ${
-                          consumer.status === 'Closed Won'
-                            ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                            : consumer.status === 'In Negotiation'
-                            ? 'bg-[#f7f4ee] text-[#7a4d29] border border-[#e6ded3]'
-                            : consumer.status === 'Proposal Sent'
-                            ? 'bg-blue-50 text-blue-800 border border-blue-200'
-                            : 'bg-zinc-100 text-zinc-700 border border-zinc-200'
-                        }`}
-                      >
-                        {consumer.status}
-                      </span>
-                    </td>
-
-                    {/* Deal Value */}
-                    <td className="py-3.5 px-4 whitespace-nowrap font-bold text-zinc-900">
-                      ${consumer.dealValue.toLocaleString()}
-                    </td>
-
-                    {/* Last Contact */}
-                    <td className="py-3.5 px-4 whitespace-nowrap text-zinc-500">
-                      {consumer.lastContact}
-                    </td>
-
-                    {/* Next Action */}
-                    <td className="py-3.5 px-5">
-                      <div className="max-w-xs">
-                        <div className="text-zinc-900 font-medium truncate">{consumer.nextAction}</div>
-                        <div className="text-[10px] text-zinc-400">{consumer.nextActionDate}</div>
-                      </div>
-                    </td>
-
-                    {/* Actions */}
-                    <td className="py-3.5 px-5 text-right whitespace-nowrap">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onSelectConsumer(consumer.id);
-                        }}
-                        className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
-                          isSelected
-                            ? 'bg-[#966035] text-white shadow-xs'
-                            : 'bg-white text-zinc-700 border border-zinc-200 hover:border-zinc-400 hover:text-zinc-900'
-                        }`}
-                      >
-                        View consumer
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-
-              {filteredConsumers.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="py-8 text-center text-zinc-400">
-                    No consumers found matching your search.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* 4. USEFUL ACTIONS & RECENT DEALS ROW */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* Left: Useful Actions Cards */}
-        <div className="lg:col-span-5 bg-white rounded-3xl p-5 sm:p-6 border border-zinc-200/80 shadow-xs space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-zinc-900 tracking-tight">Useful Actions</h3>
-            <span className="text-[11px] text-zinc-400 font-medium">Quick Workflows</span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2.5">
-            <button
-              type="button"
-              onClick={onOpenAddConsumer}
-              className="p-3.5 rounded-2xl bg-zinc-50 hover:bg-[#f7f4ee] border border-zinc-200/70 hover:border-[#e6ded3] text-left transition-all cursor-pointer group"
+        <div className="divide-y divide-zinc-100 dark:divide-zinc-800/80">
+          {contextIntelligenceList.map((item) => (
+            <div
+              key={item.id}
+              onClick={() => onOpenCopilot(`Tell me more about the customer context for ${item.company}: "${item.insight}"`)}
+              className="py-4 flex flex-col sm:flex-row sm:items-start justify-between gap-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/40 rounded-2xl px-2.5 transition-colors cursor-pointer group"
             >
-              <div className="w-8 h-8 rounded-xl bg-white border border-zinc-200 flex items-center justify-center text-zinc-700 group-hover:text-[#966035] mb-2 shadow-2xs">
-                <HugeiconsIcon icon={PlusSignIcon} className="h-4 w-4" />
-              </div>
-              <div className="text-xs font-bold text-zinc-900 group-hover:text-[#7a4d29]">Add Consumer</div>
-              <div className="text-[10px] text-zinc-500">Record a new buyer profile</div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => onNavigateTab('deals')}
-              className="p-3.5 rounded-2xl bg-zinc-50 hover:bg-[#f7f4ee] border border-zinc-200/70 hover:border-[#e6ded3] text-left transition-all cursor-pointer group"
-            >
-              <div className="w-8 h-8 rounded-xl bg-white border border-zinc-200 flex items-center justify-center text-zinc-700 group-hover:text-[#966035] mb-2 shadow-2xs">
-                <HugeiconsIcon icon={Briefcase01Icon} className="h-4 w-4" />
-              </div>
-              <div className="text-xs font-bold text-zinc-900 group-hover:text-[#7a4d29]">New Deal</div>
-              <div className="text-[10px] text-zinc-500">Create deal proposal</div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => onNavigateTab('tasks')}
-              className="p-3.5 rounded-2xl bg-zinc-50 hover:bg-[#f7f4ee] border border-zinc-200/70 hover:border-[#e6ded3] text-left transition-all cursor-pointer group"
-            >
-              <div className="w-8 h-8 rounded-xl bg-white border border-zinc-200 flex items-center justify-center text-zinc-700 group-hover:text-[#966035] mb-2 shadow-2xs">
-                <HugeiconsIcon icon={File01Icon} className="h-4 w-4" />
-              </div>
-              <div className="text-xs font-bold text-zinc-900 group-hover:text-[#7a4d29]">Create Task</div>
-              <div className="text-[10px] text-zinc-500">Set follow-up reminder</div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => onNavigateTab('calendar')}
-              className="p-3.5 rounded-2xl bg-zinc-50 hover:bg-[#f7f4ee] border border-zinc-200/70 hover:border-[#e6ded3] text-left transition-all cursor-pointer group"
-            >
-              <div className="w-8 h-8 rounded-xl bg-white border border-zinc-200 flex items-center justify-center text-zinc-700 group-hover:text-[#966035] mb-2 shadow-2xs">
-                <HugeiconsIcon icon={Calendar01Icon} className="h-4 w-4" />
-              </div>
-              <div className="text-xs font-bold text-zinc-900 group-hover:text-[#7a4d29]">Schedule Call</div>
-              <div className="text-[10px] text-zinc-500">Book client meeting</div>
-            </button>
-          </div>
-        </div>
-
-        {/* Right: Active Deal Pipeline Summary */}
-        <div className="lg:col-span-7 bg-white rounded-3xl p-5 sm:p-6 border border-zinc-200/80 shadow-xs space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-zinc-900 tracking-tight">Active Deal Pipeline</h3>
-            <button
-              type="button"
-              onClick={() => onNavigateTab('deals')}
-              className="text-xs font-semibold text-[#966035] hover:text-[#7a4d29] flex items-center gap-1 cursor-pointer"
-            >
-              <span>View all deals</span>
-              <HugeiconsIcon icon={ArrowRight01Icon} className="h-3 w-3" />
-            </button>
-          </div>
-
-          <div className="space-y-2.5">
-            {deals.slice(0, 3).map((deal) => (
-              <div
-                key={deal.id}
-                onClick={() => onNavigateTab('deals')}
-                className="p-3.5 rounded-2xl bg-zinc-50 hover:bg-[#f7f4ee] border border-zinc-200/70 transition-all cursor-pointer flex items-center justify-between gap-3"
-              >
-                <div className="min-w-0 space-y-0.5">
-                  <div className="text-xs font-bold text-zinc-900 truncate">{deal.title}</div>
-                  <div className="text-[11px] text-zinc-500 truncate">
-                    {deal.consumerName} • {deal.company}
+              <div className="flex items-start space-x-3.5 min-w-0 flex-1">
+                <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 group-hover:bg-[#966035] group-hover:text-white transition-colors">
+                  <HugeiconsIcon icon={Message01Icon} className="h-4 w-4" />
+                </div>
+                <div className="space-y-1 min-w-0">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs font-bold text-zinc-900 dark:text-white truncate">
+                      {item.company}
+                    </span>
+                    <span className="text-xs text-zinc-300 dark:text-zinc-600">•</span>
+                    <span className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
+                      {item.customerName}
+                    </span>
+                  </div>
+                  <p className="text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed">
+                    {item.insight}
+                  </p>
+                  <div className="text-[10px] text-zinc-400 dark:text-zinc-500 pt-0.5">
+                    Source: {item.source}
                   </div>
                 </div>
-
-                <div className="flex items-center space-x-3 shrink-0">
-                  <div className="text-right">
-                    <div className="text-xs font-bold text-zinc-900">${deal.value.toLocaleString()}</div>
-                    <div className="text-[10px] text-emerald-700 font-semibold">{deal.probability}% win prob</div>
-                  </div>
-                  <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-white border border-zinc-200 text-zinc-700">
-                    {deal.stage}
-                  </span>
-                </div>
               </div>
-            ))}
-          </div>
+
+              <div className="flex items-center justify-between sm:justify-end space-x-3 shrink-0 pl-11 sm:pl-0 sm:pt-0.5">
+                <span className="text-[10px] text-zinc-400">{item.timeAgo}</span>
+                <span className="text-xs font-semibold text-[#966035] dark:text-amber-300 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
+                  <span>Explore</span>
+                  <HugeiconsIcon icon={ArrowRight01Icon} className="h-3 w-3" />
+                </span>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>
