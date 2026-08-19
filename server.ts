@@ -184,16 +184,17 @@ app.post('/api/ace/copilot', async (req, res) => {
     type: 'start',
   });
 
-  // Query authoritative HydraDB graph context or memory projection
+  // Query authoritative HydraDB graph context or memory cache
   let memoryContext: any[] = [];
-  let hydraAvailable = false;
+  let isLiveHydraDB = false;
+  let hydraError: string | null = null;
   try {
     const hydraEngine = HydraDBEngine.getInstance();
-    // 1. Try querying live graph relations directly via OpenCypher from HydraDB OSS
+    // 1. Query live graph relations directly via OpenCypher from HydraDB OSS
     try {
       const liveSnapshot = await hydraEngine.fetchAuthoritativeGraphSnapshot();
       if (liveSnapshot && liveSnapshot.nodes && liveSnapshot.nodes.length > 0) {
-        hydraAvailable = true;
+        isLiveHydraDB = true;
         const q = prompt.toLowerCase();
         memoryContext = liveSnapshot.nodes.filter(n => {
           const label = (n.label || '').toLowerCase();
@@ -205,8 +206,9 @@ app.post('/api/ace/copilot', async (req, res) => {
           memoryContext = liveSnapshot.nodes.slice(0, 10);
         }
       }
-    } catch {
-      // If live network query encounters transient latency, read from the synchronized memory cache projection
+    } catch (liveErr: any) {
+      hydraError = liveErr?.message || 'HydraDB OSS connection unavailable';
+      // 2. Read from in-memory cache strictly as a performance fallback, explicitly marked as cached
       const snapshot = hydraEngine.getGraphSnapshot();
       if (snapshot && snapshot.nodes && snapshot.nodes.length > 0) {
         const q = prompt.toLowerCase();
@@ -224,6 +226,13 @@ app.post('/api/ace/copilot', async (req, res) => {
   } catch (err: any) {
     console.warn('HydraDB context retrieval notice:', err?.message);
   }
+
+  // Context block with explicit origin attribution (Live HydraDB OSS vs Local Read Cache)
+  const graphContextBlock = memoryContext.length > 0
+    ? (isLiveHydraDB
+        ? `\nAUTHORITATIVE HYDRADB OSS LIVE GRAPH CONTEXT:\n${JSON.stringify(memoryContext, null, 2)}`
+        : `\nLOCAL MEMORY CACHE (WARNING: HydraDB OSS live query failed [${hydraError}]; this is cached data, not live authoritative graph state):\n${JSON.stringify(memoryContext, null, 2)}`)
+    : '';
 
   // Built-in customer intelligence business context
   const customerKnowledgeBase = `
@@ -253,7 +262,7 @@ CROSS-CUSTOMER PATTERNS & SYNTHESIS:
 - Decision Factor: 68% of recent customer conversations cite implementation speed and dedicated onboarding assistance over extra software features.
 - Billing Preference: Strong customer willingness to commit to annual advance invoicing in exchange for multi-year price locks.
 - Security Standard: Compliance and SOC 2 documentation is mandatory for all healthcare, financial, and enterprise infrastructure accounts.
-${memoryContext.length > 0 ? `\nHYDRADB RETRIEVED GRAPH CONTEXT & ONTOLOGY NODES:\n${JSON.stringify(memoryContext, null, 2)}` : ''}
+${graphContextBlock}
 `;
 
   const systemInstruction = `You are ace, an intelligent Customer Intelligence Agent and persistent business memory.
