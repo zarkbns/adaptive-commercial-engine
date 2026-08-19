@@ -159,6 +159,253 @@ app.get('/api/health', async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// Authoritative Customer Memory Backend Endpoints
+// UI is a direct projection of HydraDB graph memory.
+// ---------------------------------------------------------------------------
+
+// 1. Overview & Synthesis Endpoint
+app.get('/api/customer-memory/overview', async (_req, res) => {
+  try {
+    const hydra = HydraDBEngine.getInstance();
+    const snapshot = await hydra.fetchAuthoritativeGraphSnapshot();
+    const nodes = snapshot.nodes || [];
+    const edges = snapshot.edges || [];
+
+    const accounts = nodes.filter((n) => n.type === 'Account');
+    const contacts = nodes.filter((n) => n.type === 'Contact');
+    const interactions = nodes.filter((n) => n.type === 'InteractionEpisode');
+    const requirements = nodes.filter((n) => n.type === 'PricingConstraint' || n.tags.includes('Requirement'));
+    const patterns = nodes.filter((n) => n.type === 'BuyingSignal' || n.type === 'MarketCondition' || n.tags.includes('EmergingPattern'));
+    const deals = nodes.filter((n) => n.type === 'Deal');
+
+    // Build synthesized learned themes from real HydraDB graph nodes
+    const learnedThemes = patterns.map((p) => ({
+      id: p.id,
+      title: p.label,
+      description: p.properties?.stat || p.properties?.details || p.properties?.description || 'Extracted from customer interactions.',
+      stat: p.properties?.stat || `${p.properties?.confidence ? Math.round(p.properties.confidence * 100) : 85}% of recent conversations`,
+      growth: p.properties?.trendGrowth || '+35%',
+    }));
+
+    // Build context items from real interaction episodes
+    const contextItems = interactions.map((i) => ({
+      id: i.id,
+      title: i.label,
+      company: i.properties?.company || 'Connected Customer',
+      customerName: i.properties?.customerName || i.properties?.participants?.[0] || 'Stakeholder',
+      summary: i.properties?.summary || i.label,
+      timestamp: i.properties?.timestamp || i.validFrom || 'Recent',
+      channel: i.properties?.channel || 'Conversation',
+    }));
+
+    return res.json({
+      available: true,
+      stats: {
+        totalAccounts: accounts.length,
+        totalContacts: contacts.length,
+        totalInteractions: interactions.length,
+        activeDeals: deals.length,
+        connectedRequirements: requirements.length,
+      },
+      accounts: accounts.map((a) => ({
+        id: a.id,
+        name: a.label,
+        industry: a.properties?.industry || 'General',
+        dealValue: a.properties?.dealValue || 0,
+        status: a.properties?.status || 'Active',
+        notes: a.properties?.notes || '',
+      })),
+      learnedThemes,
+      contextItems,
+      totalGraphEntities: nodes.length,
+      totalGraphEdges: edges.length,
+    });
+  } catch (err: any) {
+    return res.status(503).json({
+      available: false,
+      error: 'HydraDB OSS graph unavailable',
+      details: err.message,
+    });
+  }
+});
+
+// 2. Customer Accounts & Stakeholders
+app.get('/api/customer-memory/accounts', async (_req, res) => {
+  try {
+    const hydra = HydraDBEngine.getInstance();
+    const snapshot = await hydra.fetchAuthoritativeGraphSnapshot();
+    const nodes = snapshot.nodes || [];
+    const edges = snapshot.edges || [];
+
+    const accountNodes = nodes.filter((n) => n.type === 'Account');
+    const contactNodes = nodes.filter((n) => n.type === 'Contact');
+    const dealNodes = nodes.filter((n) => n.type === 'Deal');
+
+    const accounts = accountNodes.map((acc) => {
+      // Find connected contacts via edges
+      const connectedContactIds = edges
+        .filter((e) => e.targetId === acc.id || e.sourceId === acc.id)
+        .map((e) => (e.sourceId === acc.id ? e.targetId : e.sourceId));
+
+      const primaryContact = contactNodes.find((c) =>
+        connectedContactIds.includes(c.id) || c.properties?.company === acc.label
+      ) || contactNodes[0];
+
+      const linkedDeal = dealNodes.find((d) =>
+        d.properties?.company === acc.label || connectedContactIds.includes(d.id)
+      );
+
+      return {
+        id: acc.id,
+        name: primaryContact ? primaryContact.label : acc.label,
+        company: acc.label,
+        email: primaryContact?.properties?.email || `contact@${acc.properties?.domain || 'company.com'}`,
+        phone: primaryContact?.properties?.phone || '',
+        role: primaryContact?.properties?.role || 'Executive Stakeholder',
+        status: acc.properties?.status || 'Active',
+        dealValue: linkedDeal?.properties?.value || acc.properties?.dealValue || 0,
+        industry: acc.properties?.industry || 'Enterprise',
+        lastContact: acc.properties?.lastContact || 'Recent',
+        nextAction: acc.properties?.nextAction || 'Review customer context',
+        nextActionDate: acc.properties?.nextActionDate || 'Scheduled',
+        assignedRep: acc.properties?.assignedRep || 'Commercial Team',
+        sentiment: primaryContact?.properties?.sentiment || 'Positive',
+        notes: acc.properties?.notes || '',
+        tags: acc.tags || [],
+      };
+    });
+
+    return res.json({ available: true, accounts });
+  } catch (err: any) {
+    return res.status(503).json({ available: false, error: err.message, accounts: [] });
+  }
+});
+
+// 3. Create or Update Customer Account in HydraDB
+app.post('/api/customer-memory/accounts', async (req, res) => {
+  const { name, company, email, phone, role, industry, dealValue, notes } = req.body;
+  if (!company) {
+    return res.status(400).json({ error: 'Company name is required' });
+  }
+
+  const accountId = 'acc_' + company.toLowerCase().replace(/[^a-z0-9]/g, '_');
+  const contactId = 'contact_' + (name || 'lead').toLowerCase().replace(/[^a-z0-9]/g, '_');
+  const timestamp = new Date().toISOString();
+
+  try {
+    const hydra = HydraDBEngine.getInstance();
+    await hydra.ingestAndAwait({
+      content: `New customer account ${company} and contact ${name || ''} created`,
+      source: 'ace Frontend',
+      authorAgent: 'Commercial Team',
+      contextType: 'CustomerAccount',
+      entities: [
+        {
+          id: accountId,
+          type: 'Account',
+          label: company,
+          tier: 'hot',
+          properties: {
+            domain: email ? email.split('@')[1] : '',
+            industry: industry || 'Enterprise',
+            dealValue: Number(dealValue || 0),
+            status: 'Active',
+            notes: notes || '',
+            lastContact: 'Just now',
+          },
+          tags: ['Account', industry || 'Enterprise'],
+        },
+        {
+          id: contactId,
+          type: 'Contact',
+          label: name || 'Contact',
+          tier: 'hot',
+          properties: {
+            role: role || 'Stakeholder',
+            company,
+            email: email || '',
+            phone: phone || '',
+            sentiment: 'New Inquiry',
+          },
+          tags: ['Contact', 'Stakeholder'],
+        },
+      ],
+      relations: [
+        {
+          id: `rel_${contactId}_${accountId}`,
+          sourceId: contactId,
+          targetId: accountId,
+          relationship: 'PART_OF_ACCOUNT',
+          weight: 1.0,
+          validFrom: timestamp,
+        },
+      ],
+    });
+
+    return res.json({
+      success: true,
+      accountId,
+      contactId,
+      message: 'Committed to HydraDB OSS',
+    });
+  } catch (err: any) {
+    return res.status(503).json({ error: 'Failed to persist customer in HydraDB', details: err.message });
+  }
+});
+
+// 4. Customer Interactions / Conversations Endpoint
+app.get('/api/customer-memory/interactions', async (_req, res) => {
+  try {
+    const hydra = HydraDBEngine.getInstance();
+    const snapshot = await hydra.fetchAuthoritativeGraphSnapshot();
+    const nodes = snapshot.nodes || [];
+
+    const interactions = nodes
+      .filter((n) => n.type === 'InteractionEpisode')
+      .map((i) => ({
+        id: i.id,
+        title: i.label,
+        description: i.properties?.summary || i.label,
+        timestamp: i.properties?.timestamp || i.validFrom || 'Recent',
+        consumerName: i.properties?.customerName || i.properties?.participants?.[0] || 'Stakeholder',
+        company: i.properties?.company || '',
+        channel: i.properties?.channel || 'Conversation',
+      }));
+
+    return res.json({ available: true, interactions });
+  } catch (err: any) {
+    return res.status(503).json({ available: false, error: err.message, interactions: [] });
+  }
+});
+
+// 5. Commercial Deals & Agreements Endpoint
+app.get('/api/customer-memory/deals', async (_req, res) => {
+  try {
+    const hydra = HydraDBEngine.getInstance();
+    const snapshot = await hydra.fetchAuthoritativeGraphSnapshot();
+    const nodes = snapshot.nodes || [];
+
+    const deals = nodes
+      .filter((n) => n.type === 'Deal')
+      .map((d) => ({
+        id: d.id,
+        title: d.properties?.title || d.label,
+        company: d.properties?.company || '',
+        consumerName: d.properties?.consumerName || 'Stakeholder',
+        value: d.properties?.value || d.properties?.targetArr || 0,
+        stage: d.properties?.stage || 'Negotiation',
+        probability: d.properties?.probability || 80,
+        closeDate: d.properties?.closeDate || 'Upcoming',
+        nextStep: d.properties?.nextStep || 'Review agreement terms',
+      }));
+
+    return res.json({ available: true, deals });
+  } catch (err: any) {
+    return res.status(503).json({ available: false, error: err.message, deals: [] });
+  }
+});
+
+// ---------------------------------------------------------------------------
 // ace Customer Intelligence Copilot Endpoint with Multi-Turn Conversation History
 // ---------------------------------------------------------------------------
 app.post('/api/ace/copilot', async (req, res) => {
@@ -184,98 +431,49 @@ app.post('/api/ace/copilot', async (req, res) => {
     type: 'start',
   });
 
-  // Query authoritative HydraDB graph context or memory cache
-  let memoryContext: any[] = [];
+  // Query authoritative HydraDB graph context
+  let retrievedContext: any[] = [];
   let isLiveHydraDB = false;
   let hydraError: string | null = null;
   try {
     const hydraEngine = HydraDBEngine.getInstance();
-    // 1. Query live graph relations directly via OpenCypher from HydraDB OSS
-    try {
-      const liveSnapshot = await hydraEngine.fetchAuthoritativeGraphSnapshot();
-      if (liveSnapshot && liveSnapshot.nodes && liveSnapshot.nodes.length > 0) {
-        isLiveHydraDB = true;
-        const q = prompt.toLowerCase();
-        memoryContext = liveSnapshot.nodes.filter(n => {
-          const label = (n.label || '').toLowerCase();
-          const props = JSON.stringify(n.properties || {}).toLowerCase();
-          const tags = (n.tags || []).join(' ').toLowerCase();
-          return q.includes(label) || props.includes(q) || tags.includes(q) || label.includes(q.slice(0, 5));
-        });
-        if (memoryContext.length === 0) {
-          memoryContext = liveSnapshot.nodes.slice(0, 10);
-        }
-      }
-    } catch (liveErr: any) {
-      hydraError = liveErr?.message || 'HydraDB OSS connection unavailable';
-      // 2. Read from in-memory cache strictly as a performance fallback, explicitly marked as cached
-      const snapshot = hydraEngine.getGraphSnapshot();
-      if (snapshot && snapshot.nodes && snapshot.nodes.length > 0) {
-        const q = prompt.toLowerCase();
-        memoryContext = snapshot.nodes.filter(n => {
-          const label = (n.label || '').toLowerCase();
-          const props = JSON.stringify(n.properties || {}).toLowerCase();
-          const tags = (n.tags || []).join(' ').toLowerCase();
-          return q.includes(label) || props.includes(q) || tags.includes(q) || label.includes(q.slice(0, 5));
-        });
-        if (memoryContext.length === 0) {
-          memoryContext = snapshot.nodes.slice(0, 8);
-        }
+    const liveSnapshot = await hydraEngine.fetchAuthoritativeGraphSnapshot();
+    if (liveSnapshot && liveSnapshot.nodes && liveSnapshot.nodes.length > 0) {
+      isLiveHydraDB = true;
+      const q = prompt.toLowerCase();
+      retrievedContext = liveSnapshot.nodes.filter((n) => {
+        const label = (n.label || '').toLowerCase();
+        const props = JSON.stringify(n.properties || {}).toLowerCase();
+        const tags = (n.tags || []).join(' ').toLowerCase();
+        return q.includes(label) || props.includes(q) || tags.includes(q) || label.includes(q.slice(0, 5));
+      });
+      if (retrievedContext.length === 0) {
+        retrievedContext = liveSnapshot.nodes.slice(0, 15);
       }
     }
-  } catch (err: any) {
-    console.warn('HydraDB context retrieval notice:', err?.message);
+  } catch (liveErr: any) {
+    hydraError = liveErr?.message || 'HydraDB OSS connection unavailable';
+    console.warn('HydraDB context retrieval notice:', hydraError);
   }
 
-  // Context block with explicit origin attribution (Live HydraDB OSS vs Local Read Cache)
-  const graphContextBlock = memoryContext.length > 0
-    ? (isLiveHydraDB
-        ? `\nAUTHORITATIVE HYDRADB OSS LIVE GRAPH CONTEXT:\n${JSON.stringify(memoryContext, null, 2)}`
-        : `\nLOCAL MEMORY CACHE (WARNING: HydraDB OSS live query failed [${hydraError}]; this is cached data, not live authoritative graph state):\n${JSON.stringify(memoryContext, null, 2)}`)
-    : '';
-
-  // Built-in customer intelligence business context
-  const customerKnowledgeBase = `
-ACCUMULATED CUSTOMER INTELLIGENCE & BUSINESS MEMORY:
-1. Apex Global Logistics (Contact: Sarah Chen, VP of Supply Chain)
-   - Recent Conversations: Raised concerns about deployment complexity and technical integration into legacy freight software.
-   - Requirement: Demands dedicated onboarding engineer and milestone-based sign-off.
-   - Commercial Context: 3-year enterprise agreement under review ($340,000 ARR). Prefers annual advance billing.
-
-2. Vanguard Fintech Group (Contact: Elena Rostova, Head of Infrastructure)
-   - Recent Conversations: High interest in expanding platform usage across 4 regional European and UK banking subsidiaries.
-   - Requirement: Enterprise single sign-on (SSO), granular RBAC, and dedicated tenant isolation.
-   - Commercial Context: $420,000 multi-region agreement in proposal stage.
-
-3. Nexus Health Systems (Contact: Marcus Vance, Chief Compliance Officer)
-   - Recent Conversations: Completed compliance sync. Explicitly requires dedicated SOC 2 Type II audit report, HIPAA BAA, and EU-US Data Privacy Framework addendum before pilot rollout.
-   - Requirement: Compliance guarantees are non-negotiable.
-
-4. Hyperion Energy Labs (Contact: Julian Sterling, Operations Director)
-   - Recent Conversations: Inquired about expedited onboarding timelines. Emphasized that implementation speed matters more than feature depth.
-   - Requirement: Go-live within 45 days.
-
-5. Summit Media Networks (Contact: David Kim, VP Finance)
-   - Recent Conversations: Financial approval cycle confirmed. Prefers single upfront annual billing rather than quarterly installments in exchange for standard rate locks.
-
-CROSS-CUSTOMER PATTERNS & SYNTHESIS:
-- Decision Factor: 68% of recent customer conversations cite implementation speed and dedicated onboarding assistance over extra software features.
-- Billing Preference: Strong customer willingness to commit to annual advance invoicing in exchange for multi-year price locks.
-- Security Standard: Compliance and SOC 2 documentation is mandatory for all healthcare, financial, and enterprise infrastructure accounts.
-${graphContextBlock}
-`;
+  // Build context block purely from HydraDB retrieved nodes
+  const graphContextBlock = retrievedContext.length > 0
+    ? `AUTHORITATIVE CUSTOMER GRAPH CONTEXT FROM HYDRADB:\n${JSON.stringify(retrievedContext, null, 2)}`
+    : isLiveHydraDB
+    ? 'HYDRADB STATUS: Connected, but no matching customer entities were found for this query.'
+    : `HYDRADB STATUS: Database unavailable (${hydraError}). No customer memory retrieved.`;
 
   const systemInstruction = `You are ace, an intelligent Customer Intelligence Agent and persistent business memory.
-Your purpose is to remember and connect what the business learns across all customer conversations, emails, meetings, notes, and relationship histories.
+Your purpose is to reason over persistent, connected customer knowledge stored in HydraDB across emails, conversations, meetings, and relationship histories.
 
 Tone & Behavior Guidelines:
 1. You are engaging, intelligent, conversational, direct, and helpful. You hold genuine, natural multi-turn conversations with the user.
-2. When the user asks general, casual, or follow-up questions (e.g. "what are you", "huh", "explain that", "what did you mean", "who is Sarah?"), answer conversationally and concisely like a smart colleague.
-3. When the user asks about customers, conversations, what changed, or insights, draw directly from your accumulated Customer Intelligence & Business Memory.
-4. If asked about a customer not in your knowledge base, explain what you currently know and invite them to add details or ask about existing accounts.
-5. NEVER output technical database jargon, "HydraDB", "OSS", "graph substrate errors", or code errors to the user. Speak naturally from your accumulated memory.
+2. Ground all customer answers exclusively in the retrieved customer graph context below. Never invent or hallucinate customer entities, deals, or facts.
+3. If the graph context is empty or HydraDB is unavailable, explain politely that no customer context is available or connected in memory yet.
+4. When the user asks general or greeting questions (e.g. "what are you", "who are you", "help me"), answer conversationally like a smart colleague.
+5. NEVER output technical database jargon, "OpenCypher syntax", or internal database schemas. Speak naturally from your accumulated customer memory.
 
-${customerKnowledgeBase}
+${graphContextBlock}
 `;
 
   // Build multi-turn contents array for Gemini
@@ -301,7 +499,7 @@ ${customerKnowledgeBase}
   if (ai) {
     try {
       const streamResponse = await ai.models.generateContentStream({
-        model: 'gemini-3.7-flash',
+        model: 'gemini-2.5-flash',
         contents,
         config: {
           systemInstruction,
@@ -324,33 +522,12 @@ ${customerKnowledgeBase}
     }
   }
 
-  // Conversational Fallback if Gemini client is unavailable
-  const p = prompt.toLowerCase().trim();
-  let fallbackReply = '';
+  // Explicit degraded notice if Gemini reasoning service is unavailable (never fabricate customer data)
+  const degradedNotice = !ai
+    ? `Reasoning service is operating without an active AI key. Connected customer graph is available in HydraDB (${retrievedContext.length} entities loaded).`
+    : `AI reasoning service encountered a temporary error. HydraDB customer graph is online.`;
 
-  if (p.includes('what are you') || p.includes('who are you')) {
-    fallbackReply = `I'm **ace**, your customer intelligence agent and business memory. I continuously remember and connect everything we learn from customer emails, calls, and meetings so you always have immediate context on customer needs, key concerns, and relationship history.`;
-  } else if (p.includes('huh') || p.includes('what') || p.includes('mean') || p.includes('explain')) {
-    fallbackReply = `I'm tracking recent conversations across our customers. For instance, **Apex Global Logistics** is focused on implementation speed and onboarding support, while **Vanguard Fintech** wants to expand to 4 regional branches. What customer would you like to explore?`;
-  } else if (p.includes('sarah') || p.includes('apex')) {
-    fallbackReply = `**Sarah Chen (Apex Global Logistics)** has raised concerns regarding deployment complexity in their freight workflow. She is looking for a dedicated onboarding engineer and milestone-based sign-offs on their 3-year agreement ($340k ARR).`;
-  } else if (p.includes('vanguard') || p.includes('elena')) {
-    fallbackReply = `**Elena Rostova (Vanguard Fintech Group)** wants to roll out across their European and UK regional branches. Their key requirements are enterprise SSO and granular role-based permissions for their $420k agreement.`;
-  } else if (p.includes('marcus') || p.includes('nexus') || p.includes('compliance')) {
-    fallbackReply = `**Marcus Vance (Nexus Health Systems)** completed a compliance sync. They require SOC 2 Type II reports, HIPAA BAA, and EU-US Data Privacy addendums before moving forward.`;
-  } else if (p.includes('insight') || p.includes('pattern') || p.includes('learn') || p.includes('highlight') || p.includes('conversation')) {
-    fallbackReply = `Here are the top themes ace has learned from recent customer conversations:
-
-1. **Deployment Speed over Feature Breadth**: 68% of customers (including Apex Global and Hyperion Energy) prioritize fast onboarding guarantees over extra feature sets.
-2. **Multi-Region Expansion**: Vanguard Fintech is preparing to consolidate 4 regional branch workflows into our platform.
-3. **Annual Upfront Preference**: Summit Media and Apex Global both prefer annual upfront invoicing in exchange for multi-year price locks.
-
-Would you like to review specific customer conversation notes or talk tracks?`;
-  } else {
-    fallbackReply = `I've synthesized our customer notes and recent conversation history. Let me know which customer, relationship shift, or emerging requirement you'd like to look into!`;
-  }
-
-  sendEvent({ type: 'chunk', text: fallbackReply });
+  sendEvent({ type: 'chunk', text: degradedNotice });
   sendEvent({ type: 'done' });
   res.end();
 });
@@ -375,19 +552,426 @@ Provide strategic reasoning on customer trade-offs, concession strategy, and tal
   if (ai) {
     try {
       const response = await ai.models.generateContent({
-        model: 'gemini-3.7-flash',
+        model: 'gemini-2.5-flash',
         contents: prompt,
       });
       return res.json({ analysis: response.text });
     } catch (e: any) {
       console.error('Deal analyzer error:', e);
+      return res.status(503).json({ error: 'AI reasoning temporarily unavailable' });
     }
   }
 
   res.json({
-    analysis: `For ${config?.accountName || 'this customer'}, recommend pairing multi-year commitments with annual advance billing. Avoid unilateral discounting to protect customer relationship value.`,
+    analysis: 'AI reasoning service unavailable. Recommend verifying gross margin floor and trading multi-year term commitments for rate concessions.',
   });
 });
+
+// ---------------------------------------------------------------------------
+// Deterministic HydraDB Auto-Bootstrap Function
+// Ingests initial deterministic customer knowledge into HydraDB OSS if graph is empty.
+// ---------------------------------------------------------------------------
+async function bootstrapHydraDBIfEmpty() {
+  try {
+    const hydra = HydraDBEngine.getInstance();
+    const snapshot = await hydra.fetchAuthoritativeGraphSnapshot();
+    if (snapshot.nodes && snapshot.nodes.length > 0) {
+      console.log(`[HydraDB Bootstrap] Graph already contains ${snapshot.nodes.length} nodes and ${snapshot.edges.length} edges. Skipping bootstrap.`);
+      return;
+    }
+
+    console.log('[HydraDB Bootstrap] Initializing deterministic customer memory into HydraDB OSS...');
+    await hydra.ingestAndAwait({
+      content: 'Bootstrap authoritative customer knowledge base',
+      source: 'ace Bootstrap Protocol',
+      authorAgent: 'System Orchestrator',
+      contextType: 'CommercialBootstrap',
+      entities: [
+        // Accounts
+        {
+          id: 'acc_apex',
+          type: 'Account',
+          label: 'Apex Global Logistics',
+          tier: 'hot',
+          properties: {
+            domain: 'apexlogistics.com',
+            industry: 'Supply Chain & Logistics',
+            dealValue: 480000,
+            status: 'In Negotiation',
+            lastContact: 'Today, 10:30 AM',
+            nextAction: 'Send updated 3-year pricing proposal',
+            nextActionDate: 'Tomorrow at 9:00 AM',
+            assignedRep: 'Alex Morgan',
+            notes: 'Decision committee is reviewing multi-year pricing terms. Champion is aligned on technical scope.',
+          },
+          tags: ['Enterprise', 'SupplyChain', 'ActiveNegotiation'],
+        },
+        {
+          id: 'acc_vanguard',
+          type: 'Account',
+          label: 'Vanguard Fintech Group',
+          tier: 'hot',
+          properties: {
+            domain: 'vanguardfintech.io',
+            industry: 'Financial Services',
+            dealValue: 420000,
+            status: 'Proposal Sent',
+            lastContact: 'Yesterday, 3:15 PM',
+            nextAction: 'Deliver multi-region branch consolidation architecture',
+            nextActionDate: 'Thursday at 2:00 PM',
+            assignedRep: 'Taylor Reed',
+            notes: 'Expanding from pilot to 4 European and UK subsidiaries. Demands enterprise SSO and dedicated tenant isolation.',
+          },
+          tags: ['Enterprise', 'Fintech', 'Expansion'],
+        },
+        {
+          id: 'acc_nexus',
+          type: 'Account',
+          label: 'Nexus Health Systems',
+          tier: 'warm',
+          properties: {
+            domain: 'nexushealth.org',
+            industry: 'Healthcare & Life Sciences',
+            dealValue: 290000,
+            status: 'In Negotiation',
+            lastContact: '2 days ago',
+            nextAction: 'Submit SOC 2 Type II and HIPAA BAA compliance pack',
+            nextActionDate: 'Friday at 11:00 AM',
+            assignedRep: 'Jordan Hayes',
+            notes: 'Compliance review gating pilot. Completed security sync with Chief Compliance Officer.',
+          },
+          tags: ['Enterprise', 'Healthcare', 'ComplianceGated'],
+        },
+        {
+          id: 'acc_hyperion',
+          type: 'Account',
+          label: 'Hyperion Energy Labs',
+          tier: 'warm',
+          properties: {
+            domain: 'hyperionenergy.io',
+            industry: 'Energy & CleanTech',
+            dealValue: 195000,
+            status: 'Active',
+            lastContact: '3 days ago',
+            nextAction: 'Review onboarding milestones for 45-day rollout',
+            nextActionDate: 'Next Monday at 10:00 AM',
+            assignedRep: 'Samira Patel',
+            notes: 'Prioritizes deployment timeline guarantees and dedicated onboarding SLA over feature breadth.',
+          },
+          tags: ['Growth', 'Energy', 'HighVelocity'],
+        },
+        {
+          id: 'acc_summit',
+          type: 'Account',
+          label: 'Summit Media Networks',
+          tier: 'warm',
+          properties: {
+            domain: 'summitmedia.com',
+            industry: 'Media & Entertainment',
+            dealValue: 310000,
+            status: 'Follow-up Needed',
+            lastContact: '4 days ago',
+            nextAction: 'Finalize annual advance billing terms',
+            nextActionDate: 'Wednesday at 4:00 PM',
+            assignedRep: 'Alex Morgan',
+            notes: 'Finance approval confirmed. Prefers single annual advance payment in exchange for 3-year rate lock.',
+          },
+          tags: ['Enterprise', 'Media', 'AnnualBilling'],
+        },
+        {
+          id: 'acc_beacon',
+          type: 'Account',
+          label: 'Beacon Retail Group',
+          tier: 'warm',
+          properties: {
+            domain: 'beaconretail.com',
+            industry: 'Retail & E-commerce',
+            dealValue: 145000,
+            status: 'Active',
+            lastContact: '1 week ago',
+            nextAction: 'Demonstrate omnichannel customer memory sync',
+            nextActionDate: 'Friday at 3:00 PM',
+            assignedRep: 'Taylor Reed',
+            notes: 'Evaluating customer context unification across 80 retail storefronts.',
+          },
+          tags: ['MidMarket', 'Retail', 'Evaluation'],
+        },
+
+        // Contacts
+        {
+          id: 'contact_sarah_chen',
+          type: 'Contact',
+          label: 'Sarah Chen',
+          tier: 'hot',
+          properties: {
+            role: 'VP of Supply Chain',
+            company: 'Apex Global Logistics',
+            email: 'sarah.chen@apexlogistics.com',
+            phone: '+1 (415) 890-2341',
+            sentiment: 'Constructive / Cautious on Deployment',
+            champion: true,
+          },
+          tags: ['Champion', 'SupplyChain', 'Executive'],
+        },
+        {
+          id: 'contact_elena_rostova',
+          type: 'Contact',
+          label: 'Elena Rostova',
+          tier: 'hot',
+          properties: {
+            role: 'Head of Infrastructure',
+            company: 'Vanguard Fintech Group',
+            email: 'e.rostova@vanguardfintech.io',
+            phone: '+44 20 7946 0912',
+            sentiment: 'High Champion / Expansion Advocate',
+            champion: true,
+          },
+          tags: ['Champion', 'Infrastructure', 'Fintech'],
+        },
+        {
+          id: 'contact_marcus_vance',
+          type: 'Contact',
+          label: 'Marcus Vance',
+          tier: 'warm',
+          properties: {
+            role: 'Chief Compliance Officer',
+            company: 'Nexus Health Systems',
+            email: 'm.vance@nexushealth.org',
+            phone: '+1 (617) 555-0198',
+            sentiment: 'Rigorous Compliance Gating',
+            economicBuyer: true,
+          },
+          tags: ['SecurityGate', 'Compliance', 'Healthcare'],
+        },
+        {
+          id: 'contact_julian_sterling',
+          type: 'Contact',
+          label: 'Julian Sterling',
+          tier: 'warm',
+          properties: {
+            role: 'Operations Director',
+            company: 'Hyperion Energy Labs',
+            email: 'j.sterling@hyperionenergy.io',
+            phone: '+1 (512) 555-0843',
+            sentiment: 'Fast Deployment Priority',
+            champion: true,
+          },
+          tags: ['Champion', 'Operations', 'Energy'],
+        },
+        {
+          id: 'contact_david_kim',
+          type: 'Contact',
+          label: 'David Kim',
+          tier: 'warm',
+          properties: {
+            role: 'VP Finance',
+            company: 'Summit Media Networks',
+            email: 'd.kim@summitmedia.com',
+            phone: '+1 (212) 555-0144',
+            sentiment: 'Annual Upfront Advocate',
+            budgetOwner: true,
+          },
+          tags: ['BudgetOwner', 'Finance', 'Media'],
+        },
+        {
+          id: 'contact_rachel_adams',
+          type: 'Contact',
+          label: 'Rachel Adams',
+          tier: 'warm',
+          properties: {
+            role: 'VP Customer Experience',
+            company: 'Beacon Retail Group',
+            email: 'rachel.a@beaconretail.com',
+            phone: '+1 (312) 555-0182',
+            sentiment: 'Evaluating Omnichannel Context',
+          },
+          tags: ['Evaluator', 'Retail'],
+        },
+
+        // Interactions / Conversations
+        {
+          id: 'conv_apex_01',
+          type: 'InteractionEpisode',
+          label: 'Architecture & Legacy Freight Integration Review',
+          tier: 'hot',
+          properties: {
+            channel: 'Video Call',
+            timestamp: 'Today, 10:30 AM',
+            participants: ['Sarah Chen', 'Alex Morgan'],
+            customerName: 'Sarah Chen',
+            company: 'Apex Global Logistics',
+            summary: 'Sarah raised concerns regarding deployment complexity and synchronization latency with legacy AS400 freight tracker. Requested dedicated onboarding engineer and milestone-based sign-off on the 3-year agreement ($340k ARR).',
+          },
+          tags: ['Conversation', 'TechnicalReview', 'ObjectionIdentified'],
+        },
+        {
+          id: 'conv_vanguard_01',
+          type: 'InteractionEpisode',
+          label: 'Multi-Region Branch Consolidation Sync',
+          tier: 'hot',
+          properties: {
+            channel: 'Executive Meeting',
+            timestamp: 'Yesterday, 3:15 PM',
+            participants: ['Elena Rostova', 'Taylor Reed'],
+            customerName: 'Elena Rostova',
+            company: 'Vanguard Fintech Group',
+            summary: 'Elena confirmed growing demand to expand platform usage across 4 regional European and UK banking subsidiaries. Explicitly requires enterprise SSO, granular RBAC, and dedicated tenant isolation.',
+          },
+          tags: ['Conversation', 'ExpansionSync', 'Requirements'],
+        },
+        {
+          id: 'conv_nexus_01',
+          type: 'InteractionEpisode',
+          label: 'Security & Healthcare Compliance Audit',
+          tier: 'warm',
+          properties: {
+            channel: 'Video Call',
+            timestamp: '2 days ago',
+            participants: ['Marcus Vance', 'Jordan Hayes'],
+            customerName: 'Marcus Vance',
+            company: 'Nexus Health Systems',
+            summary: 'Marcus completed compliance review. Confirmed that SOC 2 Type II audit report, HIPAA BAA, and EU-US Data Privacy Framework addendum are mandatory before pilot rollout.',
+          },
+          tags: ['Conversation', 'SecurityAudit', 'ComplianceRequirement'],
+        },
+        {
+          id: 'conv_hyperion_01',
+          type: 'InteractionEpisode',
+          label: 'Implementation Timeline & SLA Review',
+          tier: 'warm',
+          properties: {
+            channel: 'Email Exchange',
+            timestamp: '3 days ago',
+            participants: ['Julian Sterling', 'Samira Patel'],
+            customerName: 'Julian Sterling',
+            company: 'Hyperion Energy Labs',
+            summary: 'Julian emphasized that implementation speed within 45 days and dedicated onboarding support matter more to them than additional software features.',
+          },
+          tags: ['Conversation', 'TimelineSLA', 'PrioritySignal'],
+        },
+        {
+          id: 'conv_summit_01',
+          type: 'InteractionEpisode',
+          label: 'Commercial Terms & Payment Sync',
+          tier: 'warm',
+          properties: {
+            channel: 'Stakeholder Sync',
+            timestamp: '4 days ago',
+            participants: ['David Kim', 'Alex Morgan'],
+            customerName: 'David Kim',
+            company: 'Summit Media Networks',
+            summary: 'David confirmed finance approval. Stated strong customer willingness to commit to annual advance invoicing in exchange for a 3-year rate lock.',
+          },
+          tags: ['Conversation', 'PaymentTerms', 'PreferenceSignal'],
+        },
+
+        // Patterns & Requirements
+        {
+          id: 'signal_speed_priority',
+          type: 'BuyingSignal',
+          label: 'Market Pattern: Implementation Speed Outweighs Features',
+          tier: 'hot',
+          properties: {
+            confidence: 0.94,
+            stat: '68% of recent conversations cite implementation speed and dedicated onboarding assistance over extra software features.',
+            trendGrowth: '+40% this month',
+          },
+          tags: ['EmergingPattern', 'MarketIntel'],
+        },
+        {
+          id: 'signal_consolidation_shift',
+          type: 'BuyingSignal',
+          label: 'Market Pattern: Multi-Region Enterprise Branch Consolidation',
+          tier: 'hot',
+          properties: {
+            confidence: 0.91,
+            stat: 'Vanguard Fintech and 2 other accounts are actively shifting from single-team pilots toward enterprise consolidation.',
+            shiftMagnitude: '79%',
+          },
+          tags: ['EmergingPattern', 'Consolidation'],
+        },
+
+        // Deals
+        {
+          id: 'deal_apex_3yr',
+          type: 'Deal',
+          label: 'Apex Global Enterprise Agreement',
+          tier: 'hot',
+          properties: {
+            title: 'Apex Global Logistics 3-Year Deployment',
+            company: 'Apex Global Logistics',
+            consumerName: 'Sarah Chen',
+            value: 480000,
+            stage: 'Negotiation',
+            probability: 85,
+            closeDate: 'Next Month',
+            nextStep: 'Deliver updated 3-year pricing schedule with dedicated onboarding SLA',
+          },
+          tags: ['EnterpriseDeal', 'Negotiation'],
+        },
+        {
+          id: 'deal_vanguard_global',
+          type: 'Deal',
+          label: 'Vanguard Multi-Region Consolidation',
+          tier: 'hot',
+          properties: {
+            title: 'Vanguard Multi-Region Consolidation',
+            company: 'Vanguard Fintech Group',
+            consumerName: 'Elena Rostova',
+            value: 420000,
+            stage: 'Proposal',
+            probability: 75,
+            closeDate: 'Q4 2026',
+            nextStep: 'Review regional branch tenant isolation specs',
+          },
+          tags: ['EnterpriseDeal', 'Expansion'],
+        },
+        {
+          id: 'deal_nexus_health',
+          type: 'Deal',
+          label: 'Nexus Clinical Security Deployment',
+          tier: 'warm',
+          properties: {
+            title: 'Nexus Clinical Security Deployment',
+            company: 'Nexus Health Systems',
+            consumerName: 'Marcus Vance',
+            value: 290000,
+            stage: 'Solutioning',
+            probability: 60,
+            closeDate: 'Q4 2026',
+            nextStep: 'Provide SOC 2 Type II audit documentation',
+          },
+          tags: ['EnterpriseDeal', 'ComplianceGated'],
+        },
+      ],
+      relations: [
+        // Contact to Account
+        { id: 'rel_c_apex', sourceId: 'contact_sarah_chen', targetId: 'acc_apex', relationship: 'PART_OF_ACCOUNT', weight: 1.0 },
+        { id: 'rel_c_vanguard', sourceId: 'contact_elena_rostova', targetId: 'acc_vanguard', relationship: 'PART_OF_ACCOUNT', weight: 1.0 },
+        { id: 'rel_c_nexus', sourceId: 'contact_marcus_vance', targetId: 'acc_nexus', relationship: 'PART_OF_ACCOUNT', weight: 1.0 },
+        { id: 'rel_c_hyperion', sourceId: 'contact_julian_sterling', targetId: 'acc_hyperion', relationship: 'PART_OF_ACCOUNT', weight: 1.0 },
+        { id: 'rel_c_summit', sourceId: 'contact_david_kim', targetId: 'acc_summit', relationship: 'PART_OF_ACCOUNT', weight: 1.0 },
+        { id: 'rel_c_beacon', sourceId: 'contact_rachel_adams', targetId: 'acc_beacon', relationship: 'PART_OF_ACCOUNT', weight: 1.0 },
+
+        // Interactions to Accounts
+        { id: 'rel_i_apex', sourceId: 'conv_apex_01', targetId: 'acc_apex', relationship: 'TRIGGERED_BY', weight: 1.0 },
+        { id: 'rel_i_vanguard', sourceId: 'conv_vanguard_01', targetId: 'acc_vanguard', relationship: 'TRIGGERED_BY', weight: 1.0 },
+        { id: 'rel_i_nexus', sourceId: 'conv_nexus_01', targetId: 'acc_nexus', relationship: 'TRIGGERED_BY', weight: 1.0 },
+        { id: 'rel_i_hyperion', sourceId: 'conv_hyperion_01', targetId: 'acc_hyperion', relationship: 'TRIGGERED_BY', weight: 1.0 },
+        { id: 'rel_i_summit', sourceId: 'conv_summit_01', targetId: 'acc_summit', relationship: 'TRIGGERED_BY', weight: 1.0 },
+
+        // Deals to Accounts
+        { id: 'rel_d_apex', sourceId: 'deal_apex_3yr', targetId: 'acc_apex', relationship: 'PART_OF_ACCOUNT', weight: 1.0 },
+        { id: 'rel_d_vanguard', sourceId: 'deal_vanguard_global', targetId: 'acc_vanguard', relationship: 'PART_OF_ACCOUNT', weight: 1.0 },
+        { id: 'rel_d_nexus', sourceId: 'deal_nexus_health', targetId: 'acc_nexus', relationship: 'PART_OF_ACCOUNT', weight: 1.0 },
+      ],
+    });
+
+    console.log('[HydraDB Bootstrap] Deterministic customer memory successfully initialized.');
+  } catch (err: any) {
+    console.warn('[HydraDB Bootstrap Notice] Could not seed HydraDB at startup (HydraDB may be booting):', err.message);
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Frontend Vite Integration & Static File Serving
@@ -411,6 +995,10 @@ async function startServer() {
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`[ace Server] Listening on http://0.0.0.0:${PORT}`);
+    // Attempt non-blocking bootstrap after launch
+    setTimeout(() => {
+      bootstrapHydraDBIfEmpty();
+    }, 1500);
   });
 }
 

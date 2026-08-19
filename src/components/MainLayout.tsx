@@ -81,7 +81,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   const [consumers, setConsumers] = useState<Consumer[]>(() => consumerStore.getConsumers());
   const [deals, setDeals] = useState<Deal[]>(() => consumerStore.getDeals());
   const [tasks, setTasks] = useState<TaskItem[]>(() => consumerStore.getTasks());
-  const [selectedConsumerId, setSelectedConsumerId] = useState<string | null>('c1');
+  const [selectedConsumerId, setSelectedConsumerId] = useState<string | null>(null);
 
   // Search & bottom input dock
   const [globalSearch, setGlobalSearch] = useState('');

@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
-  UserIcon,
   CheckmarkCircle02Icon,
   Settings01Icon,
   Sun01Icon,
   Moon01Icon,
+  Layers01Icon,
+  RefreshIcon,
 } from '@hugeicons/core-free-icons';
 import { UserSession } from '../../services/authService';
 import { useTheme } from '../../context/ThemeContext';
@@ -22,6 +23,31 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ session }) => {
   const [notifications, setNotifications] = useState(true);
   const [currency, setCurrency] = useState('USD ($)');
 
+  // Live HydraDB Substrate Health State
+  const [hydraStatus, setHydraStatus] = useState<any>(null);
+  const [isCheckingHydra, setIsCheckingHydra] = useState(false);
+
+  const checkHydraHealth = async () => {
+    setIsCheckingHydra(true);
+    try {
+      const res = await fetch('/api/health');
+      if (res.ok) {
+        const data = await res.json();
+        setHydraStatus(data);
+      } else {
+        setHydraStatus({ status: 'error', error: 'HTTP ' + res.status });
+      }
+    } catch (e: any) {
+      setHydraStatus({ status: 'error', error: e.message });
+    } finally {
+      setIsCheckingHydra(false);
+    }
+  };
+
+  useEffect(() => {
+    checkHydraHealth();
+  }, []);
+
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     setSaved(true);
@@ -32,9 +58,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ session }) => {
     <div className="space-y-6 animate-fadeIn max-w-3xl">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-extrabold text-zinc-900 dark:text-white tracking-tight">Settings</h1>
+        <h1 className="text-2xl font-extrabold text-zinc-900 dark:text-white tracking-tight">Settings & Substrate</h1>
         <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-          Manage your salesperson profile, appearance, notification preferences, and workspace settings.
+          Manage your account profile, theme, and inspect the HydraDB persistent graph connection.
         </p>
       </div>
 
@@ -45,7 +71,56 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ session }) => {
         </div>
       )}
 
-      {/* Form */}
+      {/* HydraDB Graph Substrate Health Card */}
+      <div className="bg-white dark:bg-zinc-900 rounded-3xl p-6 border border-zinc-200/80 dark:border-zinc-800 shadow-xs space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2.5">
+            <div className="w-8 h-8 rounded-xl bg-[#f7f4ee] dark:bg-zinc-800 text-[#966035] dark:text-amber-300 border border-[#e6ded3] dark:border-zinc-700 flex items-center justify-center">
+              <HugeiconsIcon icon={Layers01Icon} className="h-4 w-4" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-zinc-900 dark:text-white">HydraDB Persistent Graph Memory</h2>
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400">Authoritative customer memory substrate</p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={checkHydraHealth}
+            disabled={isCheckingHydra}
+            className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-zinc-600 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors cursor-pointer disabled:opacity-50"
+          >
+            <HugeiconsIcon icon={RefreshIcon} className={`h-3 w-3 ${isCheckingHydra ? 'animate-spin' : ''}`} />
+            <span>Check Status</span>
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+          <div className="p-3 bg-zinc-50 dark:bg-zinc-800/60 rounded-2xl border border-zinc-100 dark:border-zinc-800">
+            <div className="text-[10px] text-zinc-400 font-medium">Substrate Status</div>
+            <div className="text-xs font-bold text-zinc-900 dark:text-white mt-0.5 flex items-center gap-1.5">
+              <span className={`w-2 h-2 rounded-full ${hydraStatus?.hydraConfig?.upstreamReachable ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+              <span>{hydraStatus?.hydraConfig?.upstreamReachable ? 'Connected & Ready' : 'Connecting / Standalone'}</span>
+            </div>
+          </div>
+
+          <div className="p-3 bg-zinc-50 dark:bg-zinc-800/60 rounded-2xl border border-zinc-100 dark:border-zinc-800">
+            <div className="text-[10px] text-zinc-400 font-medium">Graph Namespace</div>
+            <div className="text-xs font-bold text-zinc-900 dark:text-white mt-0.5">
+              {hydraStatus?.hydraConfig?.namespace || 'default'}
+            </div>
+          </div>
+
+          <div className="p-3 bg-zinc-50 dark:bg-zinc-800/60 rounded-2xl border border-zinc-100 dark:border-zinc-800">
+            <div className="text-[10px] text-zinc-400 font-medium">Query Protocol</div>
+            <div className="text-xs font-bold text-zinc-900 dark:text-white mt-0.5">
+              OpenCypher REST
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Profile & Preferences Form */}
       <form onSubmit={handleSave} className="bg-white dark:bg-zinc-900 rounded-3xl p-6 border border-zinc-200/80 dark:border-zinc-800 shadow-xs space-y-5">
         <h2 className="text-sm font-bold text-zinc-900 dark:text-white">Profile & Preferences</h2>
 
