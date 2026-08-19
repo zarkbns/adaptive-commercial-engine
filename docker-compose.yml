@@ -45,9 +45,9 @@ services:
           "exec 3<>/dev/tcp/127.0.0.1/9090 && printf 'GET /readyz HTTP/1.1\\r\\nHost: 127.0.0.1:9090\\r\\nConnection: close\\r\\n\\r\\n' >&3 && cat <&3 | grep -q '200 OK' || exit 1"
         ]
       interval: 10s
-      timeout: 5s
-      retries: 12
-      start_period: 30s
+      timeout: 10s
+      retries: 30
+      start_period: 60s
 
   # Adaptive Commercial Engine (ACE) Application Service
   ace-app:

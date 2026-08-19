@@ -12,13 +12,15 @@ mkdir -p hydradb-data/cache
 mkdir -p .hydradb/store
 mkdir -p .hydradb/cache
 
-# Generate secure random 32-byte (64 hex characters) token if not passed as arg or env
+# Generate secure random 32-byte (64 hex characters) token if not passed as arg or env, or preserve existing
 if [ -n "${1:-}" ]; then
   AUTH_TOKEN="$1"
 elif [ -n "${HYDRADB_API_KEY:-}" ]; then
   AUTH_TOKEN="${HYDRADB_API_KEY}"
 elif [ -f hydradb-data/auth-token ] && [ -s hydradb-data/auth-token ]; then
   AUTH_TOKEN="$(cat hydradb-data/auth-token | tr -d '\r\n ')"
+elif [ -f .hydradb/auth-token ] && [ -s .hydradb/auth-token ]; then
+  AUTH_TOKEN="$(cat .hydradb/auth-token | tr -d '\r\n ')"
 else
   AUTH_TOKEN="$(openssl rand -hex 32)"
 fi
@@ -38,9 +40,13 @@ chmod 755 .hydradb/store
 chmod 755 .hydradb/cache
 chmod 600 .hydradb/auth-token
 
-# Ensure local .env exists and contains HYDRADB_API_KEY (without tracking in git)
+# Ensure local .env exists (copying from .env.example if missing) and contains HYDRADB_API_KEY
 if [ ! -f .env ]; then
-  touch .env
+  if [ -f .env.example ]; then
+    cp .env.example .env
+  else
+    touch .env
+  fi
 fi
 
 if grep -q "^HYDRADB_API_KEY=" .env 2>/dev/null; then
