@@ -1,6 +1,6 @@
 # ace
 
-> **Your business already knows its customers. That knowledge is just scattered across thousands of emails, conversations, documents, and interactions. ace turns that scattered information into a persistent, connected memory and reasons over it for you.**
+> **Your business already knows its customers. That knowledge is scattered across emails, conversations, documents, meetings, and interactions. ace turns that scattered information into a persistent, connected memory and reasons over it for you.**
 
 ## What is ace?
 
@@ -12,10 +12,10 @@ ace helps teams understand:
 
 - what has been learned about a customer
 - what customers have said, requested, or cared about
-- how relationships and requirements have changed
-- patterns appearing across customer interactions
-- relevant commercial context
-- what context matters for the next decision or conversation
+- how relationships, champions, and requirements have evolved
+- emerging patterns appearing across customer interactions
+- relevant commercial context and constraints
+- what context matters most for the next decision or conversation
 
 ace is not intended to replace the systems where customer interactions originate. Its purpose is to turn those interactions into usable, persistent intelligence.
 
@@ -45,31 +45,28 @@ Emails · Meetings · Documents · Conversations · Notes
  Better customer decisions
 ```
 
-HydraDB is the authoritative customer-memory layer. ace queries the graph when it needs customer context and uses that context to ground its reasoning.
+HydraDB is the authoritative customer-memory layer. ace queries the graph via OpenCypher when it needs customer context and uses that context to ground its reasoning with Gemini models.
 
 If the graph is unavailable, ace does not silently fabricate customer information or pretend that stale data is authoritative.
 
 ## Core principles
 
 ### Persistent memory
-
 Customer knowledge survives application restarts because it is stored in HydraDB rather than browser `localStorage` or temporary application state.
 
 ### Connected context
-
-Customer information is represented as connected entities and relationships rather than isolated notes. This allows ace to reason across people, organizations, interactions, requirements, and commercial context.
+Customer information is represented as connected entities (`Account`, `Contact`, `InteractionEpisode`, `BuyingSignal`, `PricingConstraint`, `Deal`) and relationships rather than isolated notes. This allows ace to reason across people, organizations, interactions, requirements, and commercial context.
 
 ### Grounded reasoning
-
 When ace answers a customer-context question, relevant information is retrieved from the customer graph and supplied to the reasoning layer.
 
 ### Explicit degradation
-
 If HydraDB is unavailable, ace reports that live customer context cannot be verified rather than pretending unavailable information is known.
 
-### Customer intelligence, not business management
+### Customer intelligence, not generic CRM
+ace focuses on understanding customers and helping teams reason about them. It is not positioned as a generic business-management or spreadsheet CRM tool.
 
-ace focuses on understanding customers and helping teams reason about them. It is not positioned as a general-purpose business-management or CRM replacement.
+---
 
 ## Architecture
 
@@ -78,10 +75,10 @@ ace focuses on understanding customers and helping teams reason about them. It i
 |                  ace                     |
 |                                          |
 |  Customer Intelligence Agent             |
-|  UI · Copilot · Customer Context        |
+|  UI · Copilot · Customer Context         |
 +-------------------+----------------------+
                     |
-                    | OpenCypher
+                    | OpenCypher REST
                     v
 +------------------------------------------+
 |              HydraDB OSS                 |
@@ -92,6 +89,7 @@ ace focuses on understanding customers and helping teams reason about them. It i
                     |
                     v
              Persistent storage
+              ./hydradb-data/
 ```
 
 The main HydraDB query endpoint used by ace is:
@@ -106,139 +104,145 @@ HydraDB readiness is exposed through:
 GET /readyz
 ```
 
-## Local development
+---
 
-### Requirements
+## Local Development & Codespaces Setup
 
-- Node.js
-- npm
-- Docker
-- Docker Compose
-- A Gemini API key
+Follow these exact steps to run ace locally or inside GitHub Codespaces:
 
-### 1. Clone the repository
+### Prerequisites
 
-```bash
-git clone https://github.com/zarkbns/adaptive-commercial-engine.git
-cd adaptive-commercial-engine
-```
+- **Docker** & **Docker Compose**
+- **Node.js** (v20+) & **npm** (for local development)
+- **Gemini API Key** (from Google AI Studio)
 
-### 2. Configure environment variables
+---
 
-```bash
-cp .env.example .env
-```
+### Step 1: Initialize HydraDB Storage & Auth Token
 
-Set the required Gemini credential:
-
-```env
-GEMINI_API_KEY=your_gemini_api_key
-```
-
-HydraDB is configured by the Docker Compose setup for local development.
-
-### 3. Initialize HydraDB
+Run the initialization script **before starting Docker Compose**:
 
 ```bash
 bash scripts/init-hydradb.sh
 ```
 
-### 4. Start the stack
+What this does:
+- Creates persistent storage directories (`hydradb-data/store`, `hydradb-data/cache`, `.hydradb/store`, `.hydradb/cache`).
+- Generates a secure random authorization token in `hydradb-data/auth-token` (with strict `chmod 600` permissions) if one does not already exist.
+- Automatically initializes `.env` from `.env.example` and populates `HYDRADB_API_KEY`.
+
+---
+
+### Step 2: Configure Environment Variables
+
+Copy `.env.example` to `.env` if not already created:
 
 ```bash
+cp .env.example .env
+```
+
+Set your Gemini API key in `.env`:
+
+```env
+GEMINI_API_KEY=your_gemini_api_key_here
+```
+
+Ensure `HYDRADB_API_KEY` matches the token generated by `scripts/init-hydradb.sh` (or check `cat hydradb-data/auth-token`).
+
+---
+
+### Step 3: Start Services with Docker Compose
+
+Launch the stack:
+
+```bash
+export HOST_UID=$(id -u) && export HOST_GID=$(id -g)
 docker compose up -d --build
 ```
 
-Check the services:
+Check container status:
 
 ```bash
 docker compose ps
 ```
 
-Check HydraDB readiness:
+#### Startup & Readiness Notes:
+- **HydraDB OSS initialization**: HydraDB can take up to **~60 seconds** to complete internal cell initialization and report ready, especially in virtualized environments like **GitHub Codespaces**.
+- **Container startup dependency**: `ace-app` intentionally starts as soon as HydraDB has started (`condition: service_started`) rather than blocking on the healthcheck.
+- **Expected initial behavior**: ace can start while HydraDB is still initializing. This is expected—the application explicitly handles and reports when HydraDB is starting, unavailable, or ready, without throwing uncaught crashes or defaulting to fake data.
 
+---
+
+### Step 4: Verify Connectivity & Readiness
+
+#### 1. Verify HydraDB Container Readiness
 ```bash
 curl http://localhost:9090/readyz
 ```
+*Expected output when fully initialized: `ok` (HTTP 200 OK)*
 
-### 5. Open ace
+#### 2. Verify ace → HydraDB Connectivity
+```bash
+curl http://localhost:3000/healthz
+```
+*Expected JSON output:*
+```json
+{
+  "status": "ok",
+  "hydradb": "ready"
+}
+```
 
-The application normally runs at:
+#### 3. Inspect Full Substrate Health
+```bash
+curl -s http://localhost:3000/api/health
+```
+
+---
+
+### Step 5: Open ace
+
+The application runs at:
 
 ```text
 http://localhost:3000
 ```
 
-## Customer memory
+---
 
-ace's intelligence is designed to come from persistent graph data.
+### Step 6: (Optional) Seed Authoritative Customer Memory
 
-The application provides customer-memory APIs for information such as:
+To seed sample enterprise customer relationships and interaction history into a fresh HydraDB instance:
 
-- customer accounts
-- stakeholders
-- interactions
-- requirements
-- commercial context
-- connected customer relationships
+```bash
+bash scripts/seed-hydradb.sh
+```
 
-The graph grows from the information available to the application. A fresh installation can initialize its HydraDB environment using the included scripts.
+---
 
-## Development verification
+## Development Verification
 
-Run:
+Run standard checks:
 
 ```bash
 npm run lint
 npm run build
 ```
 
-For a local end-to-end environment:
-
-```bash
-docker compose up -d --build
-docker compose ps
-curl http://localhost:9090/readyz
-```
-
-The application should fail explicitly when HydraDB cannot provide authoritative customer context instead of silently replacing it with fake customer data.
+---
 
 ## Security
 
-Secrets should be provided through environment variables or the hosting platform's secret manager.
-
-Do not commit:
-
+Secrets should be provided through environment variables or secret managers. Never commit:
 - `.env`
 - Gemini API keys
 - HydraDB authentication tokens
-- local HydraDB storage
-- other live credentials
+- `hydradb-data/` local database storage
 
 The repository includes `.env.example` as a safe configuration template.
 
-## Open source
+---
 
-ace is released under the **Apache License 2.0**. See [`LICENSE`](./LICENSE).
+## Open Source & License
 
-## Project status
-
-ace is an actively developed project focused on persistent customer memory, connected customer intelligence, and grounded reasoning over accumulated business context.
-
-The architecture prioritizes:
-
-1. HydraDB as the authoritative customer-memory substrate.
-2. Persistent graph-backed customer context.
-3. Reasoning grounded in retrieved customer information.
-4. Separation between live graph state and client-side projections.
-5. Explicit degraded behavior when the authoritative graph is unavailable.
-
-## Contributing
-
-Contributions are welcome.
-
-For changes that affect customer-memory behavior or HydraDB integration, verify both the application build and the local Docker/HydraDB flow before submitting a pull request.
-
-## License
-
-Apache License 2.0. See [`LICENSE`](./LICENSE).
+ace is open-source software released under the **Apache License, Version 2.0**. See [`LICENSE`](./LICENSE) for details.
