@@ -6,11 +6,10 @@ import {
   SparklesIcon,
   UserIcon,
   Message01Icon,
-  Layers01Icon,
   TradeUpIcon,
   BookOpen01Icon,
 } from '@hugeicons/core-free-icons';
-import { classifyCopilotIntent } from '../services/ace/intentGate';
+import { FormattedMessage } from './FormattedMessage';
 
 interface Message {
   id: string;
@@ -64,7 +63,7 @@ export const AICopilotDrawer: React.FC<AICopilotDrawerProps> = ({ isOpen, onClos
     if (!textToSend.trim() || isGenerating) return;
 
     const userMessage: Message = {
-      id: 'msg_' + Date.now(),
+      id: 'user_' + Date.now(),
       sender: 'user',
       text: textToSend,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -169,7 +168,7 @@ export const AICopilotDrawer: React.FC<AICopilotDrawerProps> = ({ isOpen, onClos
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-y-0 right-0 w-full sm:w-[460px] bg-white dark:bg-zinc-900 border-l border-zinc-200 dark:border-zinc-800 shadow-2xl z-50 flex flex-col animate-slideLeft">
+    <div className="fixed inset-y-0 right-0 w-full sm:w-[480px] bg-white dark:bg-zinc-900 border-l border-zinc-200 dark:border-zinc-800 shadow-2xl z-50 flex flex-col animate-slideLeft">
       {/* Header */}
       <div className="p-4 sm:p-5 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between bg-zinc-50/70 dark:bg-zinc-850">
         <div className="flex items-center space-x-2.5">
@@ -199,13 +198,17 @@ export const AICopilotDrawer: React.FC<AICopilotDrawerProps> = ({ isOpen, onClos
             className={`flex flex-col ${m.sender === 'user' ? 'items-end' : 'items-start'}`}
           >
             <div
-              className={`max-w-[88%] rounded-2xl p-3.5 leading-relaxed ${
+              className={`max-w-[92%] rounded-2xl p-4 leading-relaxed ${
                 m.sender === 'user'
                   ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 rounded-br-none shadow-xs'
                   : 'bg-[#f7f4ee] text-zinc-800 dark:bg-zinc-800 dark:text-zinc-100 rounded-bl-none border border-[#e6ded3] dark:border-zinc-700/60'
               }`}
             >
-              <div className="whitespace-pre-wrap">{m.text}</div>
+              {m.sender === 'user' ? (
+                <div className="whitespace-pre-wrap">{m.text}</div>
+              ) : (
+                <FormattedMessage text={m.text} />
+              )}
             </div>
             <span className="text-[10px] text-zinc-400 mt-1 px-1">{m.timestamp}</span>
           </div>
@@ -248,19 +251,19 @@ export const AICopilotDrawer: React.FC<AICopilotDrawerProps> = ({ isOpen, onClos
           e.preventDefault();
           handleSendMessage();
         }}
-        className="p-3 sm:p-4 border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex items-center gap-2"
+        className="p-3 border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex items-center space-x-2"
       >
         <input
           type="text"
           value={inputPrompt}
           onChange={(e) => setInputPrompt(e.target.value)}
           placeholder="Ask ace anything about your customers..."
-          className="flex-1 px-4 py-2.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-[#966035]/30 border border-transparent focus:border-[#966035]"
+          className="flex-1 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-[#966035]"
         />
         <button
           type="submit"
           disabled={!inputPrompt.trim() || isGenerating}
-          className="w-9 h-9 rounded-full bg-[#966035] hover:bg-[#83532c] disabled:opacity-40 text-white flex items-center justify-center shadow-xs transition-colors cursor-pointer shrink-0"
+          className="w-9 h-9 rounded-xl bg-[#966035] hover:bg-[#83532c] disabled:opacity-40 text-white flex items-center justify-center transition-colors cursor-pointer shrink-0"
         >
           <HugeiconsIcon icon={SentIcon} className="h-4 w-4" />
         </button>

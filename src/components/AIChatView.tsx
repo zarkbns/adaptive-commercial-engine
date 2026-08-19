@@ -7,7 +7,7 @@ import {
   Message01Icon,
   TradeUpIcon,
 } from '@hugeicons/core-free-icons';
-import { HydraDBEngine } from '../services/hydradb/engine';
+import { FormattedMessage } from './FormattedMessage';
 
 export interface ChatMessage {
   id: string;
@@ -177,13 +177,17 @@ export const AIChatView: React.FC<AIChatViewProps> = () => {
             className={`flex flex-col ${m.sender === 'user' ? 'items-end' : 'items-start'}`}
           >
             <div
-              className={`max-w-[85%] rounded-3xl p-4 text-xs leading-relaxed ${
+              className={`max-w-[88%] rounded-3xl p-4 text-xs leading-relaxed ${
                 m.sender === 'user'
                   ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 rounded-br-none shadow-xs'
                   : 'bg-[#f7f4ee] text-zinc-800 dark:bg-zinc-800 dark:text-zinc-100 rounded-bl-none border border-[#e6ded3] dark:border-zinc-700/60'
               }`}
             >
-              <div className="whitespace-pre-wrap">{m.text}</div>
+              {m.sender === 'user' ? (
+                <div className="whitespace-pre-wrap">{m.text}</div>
+              ) : (
+                <FormattedMessage text={m.text} />
+              )}
             </div>
             <span className="text-[10px] text-zinc-400 mt-1 px-1">{m.timestamp}</span>
           </div>
