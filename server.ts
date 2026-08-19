@@ -184,25 +184,45 @@ app.post('/api/ace/copilot', async (req, res) => {
     type: 'start',
   });
 
-  // Query HydraDB memory or cached knowledge
+  // Query authoritative HydraDB graph context or memory projection
   let memoryContext: any[] = [];
+  let hydraAvailable = false;
   try {
     const hydraEngine = HydraDBEngine.getInstance();
-    // Use cached knowledge snapshot to avoid failing when hydradb docker is not running locally
-    const snapshot = hydraEngine.getGraphSnapshot();
-    if (snapshot && snapshot.nodes && snapshot.nodes.length > 0) {
-      const q = prompt.toLowerCase();
-      memoryContext = snapshot.nodes.filter(n => {
-        const label = (n.label || '').toLowerCase();
-        const props = JSON.stringify(n.properties || {}).toLowerCase();
-        return q.includes(label) || props.includes(q) || label.includes(q.slice(0, 5));
-      });
-      if (memoryContext.length === 0) {
-        memoryContext = snapshot.nodes.slice(0, 6);
+    // 1. Try querying live graph relations directly via OpenCypher from HydraDB OSS
+    try {
+      const liveSnapshot = await hydraEngine.fetchAuthoritativeGraphSnapshot();
+      if (liveSnapshot && liveSnapshot.nodes && liveSnapshot.nodes.length > 0) {
+        hydraAvailable = true;
+        const q = prompt.toLowerCase();
+        memoryContext = liveSnapshot.nodes.filter(n => {
+          const label = (n.label || '').toLowerCase();
+          const props = JSON.stringify(n.properties || {}).toLowerCase();
+          const tags = (n.tags || []).join(' ').toLowerCase();
+          return q.includes(label) || props.includes(q) || tags.includes(q) || label.includes(q.slice(0, 5));
+        });
+        if (memoryContext.length === 0) {
+          memoryContext = liveSnapshot.nodes.slice(0, 10);
+        }
+      }
+    } catch {
+      // If live network query encounters transient latency, read from the synchronized memory cache projection
+      const snapshot = hydraEngine.getGraphSnapshot();
+      if (snapshot && snapshot.nodes && snapshot.nodes.length > 0) {
+        const q = prompt.toLowerCase();
+        memoryContext = snapshot.nodes.filter(n => {
+          const label = (n.label || '').toLowerCase();
+          const props = JSON.stringify(n.properties || {}).toLowerCase();
+          const tags = (n.tags || []).join(' ').toLowerCase();
+          return q.includes(label) || props.includes(q) || tags.includes(q) || label.includes(q.slice(0, 5));
+        });
+        if (memoryContext.length === 0) {
+          memoryContext = snapshot.nodes.slice(0, 8);
+        }
       }
     }
   } catch (err: any) {
-    console.warn('HydraDB cache retrieval notice:', err?.message);
+    console.warn('HydraDB context retrieval notice:', err?.message);
   }
 
   // Built-in customer intelligence business context
@@ -233,7 +253,7 @@ CROSS-CUSTOMER PATTERNS & SYNTHESIS:
 - Decision Factor: 68% of recent customer conversations cite implementation speed and dedicated onboarding assistance over extra software features.
 - Billing Preference: Strong customer willingness to commit to annual advance invoicing in exchange for multi-year price locks.
 - Security Standard: Compliance and SOC 2 documentation is mandatory for all healthcare, financial, and enterprise infrastructure accounts.
-${memoryContext.length > 0 ? `\nHYDRADB LIVE GRAPH RECORDS:\n${JSON.stringify(memoryContext, null, 2)}` : ''}
+${memoryContext.length > 0 ? `\nHYDRADB RETRIEVED GRAPH CONTEXT & ONTOLOGY NODES:\n${JSON.stringify(memoryContext, null, 2)}` : ''}
 `;
 
   const systemInstruction = `You are ace, an intelligent Customer Intelligence Agent and persistent business memory.
