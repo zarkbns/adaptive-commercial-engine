@@ -1,314 +1,263 @@
 # ace — Adaptive Commercial Engine
 
-ace is an AI-powered commercial decision engine designed to help revenue teams reason about active deals, negotiate concessions, protect margins, and coordinate commercial strategy using persistent graph context.
+**ace** is an enterprise B2B commercial intelligence and decision engine that provides revenue and commercial teams with continuous, adaptive context about accounts, deals, stakeholders, pricing constraints, buying signals, objections, competitors, and commercial history.
 
-Rather than treating the AI as a standalone chatbot, ace combines an agentic commercial workflow with a persistent graph substrate powered by HydraDB OSS.
+Rather than treating each interaction or query as an isolated prompt, **ace** creates and queries a persistent commercial knowledge graph in **HydraDB OSS**. That rich relational context is dynamically retrieved and supplied to **Gemini reasoning agents**, enabling commercial decisions and recommendations to adapt to real-world account history and deal dynamics.
 
-## What ace Does
+---
 
-ace helps commercial teams answer questions such as:
+## The Commercial Problem ace Solves
 
-- What should we ask for in exchange for a discount?
-- How can we protect gross margin while responding to pricing pressure?
-- What relationships and account context should influence a deal?
-- How should we structure a give-get strategy?
-- What should the next commercial action be?
+Modern commercial and revenue operations suffer from fragmented deal context across silos. Account executives, sales leadership, solutions engineering, and deal desks struggle with questions such as:
 
-The system supports conversational commercial analysis and structured deal optimization.
+- **What is happening with this account?** Real-time awareness of blockers, recent interactions, and relationship health.
+- **Who influences the deal and who controls the budget?** Stakeholder mapping identifying champions, economic buyers, pricing decision-makers, and detractors.
+- **What objections or blockers exist?** Live tracking of technical hurdles, compliance requirements, or unresolved commercial pushbacks.
+- **What pricing constraints apply?** Floor margins, concession rules, competitor discounting pressure, and contract terms.
+- **What has changed since the previous interaction?** Delta detection across conversations, emails, and notes.
+- **Which commercial action should happen next?** Context-grounded give-get negotiation strategies, discount exchanges, and next steps.
+- **What should Sales, Support, or Engineering know before acting?** Cross-functional commercial context alignment.
+- **How should the recommendation change based on new customer context?** Continuous adaptation as commercial events unfold.
 
-## Architecture
+---
 
-```text
-                         ace
-                          │
-            ┌─────────────┴─────────────┐
-            │                           │
-       Commercial UI              Agent / API Layer
-            │                           │
-            └─────────────┬─────────────┘
-                          │
-                   HydraDBEngine
-                          │
-                   OpenCypher HTTP
-                          │
-         POST /v1/graphs/:graph_id/query
-                          │
-                          ▼
-                 ┌─────────────────┐
-                 │   HydraDB OSS   │
-                 │                 │
-                 │  Authoritative  │
-                 │ Graph Database   │
-                 └────────┬────────┘
-                          │
-                          ▼
-                 Persistent Storage
-                   ./hydradb-data/
-```
-
-### HydraDB is the source of truth
-
-HydraDB OSS is the authoritative graph database for ace.
-
-ace does **not** use an in-memory graph as a substitute for HydraDB.
-
-The `HydraDBEngine` maintains local JavaScript Maps as a client-side cache/projection for application performance, but these structures are not the authoritative database.
-
-The authoritative flow is:
+## The Core Adaptive Loop
 
 ```text
-Application
-    ↓
-HydraDBEngine
-    ↓
-OpenCypher mutation
-    ↓
-HydraDB OSS
-    ↓
-successful persistence
-    ↓
-ace cache / commit projection
+  Commercial Event / Interaction Context
+                    │
+                    ▼
+          HydraDB Ingestion
+    (OpenCypher Graph Mutations)
+                    │
+                    ▼
+        Persistent Context Graph
+       (Authoritative HydraDB OSS)
+                    │
+                    ▼
+        HydraDB Context Retrieval
+ (Live OpenCypher Subgraph Extraction)
+                    │
+                    ▼
+          ACE Reasoning Layer
+       (Gemini Multi-Turn Model)
+                    │
+                    ▼
+    Commercial Decision / Recommendation
+                    │
+                    ▼
+ Stored Back into HydraDB Context Graph
 ```
 
-A failed HydraDB mutation does not become a successful ace commit.
+1. **Commercial Event / Context**: Transcripts, meeting notes, concession requests, or pricing signals enter the system.
+2. **HydraDB Ingestion**: Data is structured into ontology nodes and relationships, persisted directly to HydraDB OSS via OpenCypher mutations.
+3. **Persistent Graph / Context**: HydraDB OSS durably stores the accounts, stakeholders, and constraints in its storage substrate.
+4. **Retrieval from HydraDB**: When an inquiry or decision prompt occurs, relevant entity subgraphs and relationship trails are queried from HydraDB.
+5. **ACE Reasoning**: Gemini receives the retrieved HydraDB context as grounding to generate actionable commercial recommendations.
+6. **Adaptive Storage**: Resulting decisions, concession terms, and updated constraints are written back into HydraDB to inform all future actions.
 
-## Fault Isolation
+---
 
-ace explicitly distinguishes between different graph states.
-
-### HydraDB available + matching records
-
-Live graph records are returned from HydraDB.
-
-### HydraDB available + zero records
-
-The graph query legitimately returns an empty result.
-
-### HydraDB unavailable
-
-ace does not silently substitute stale cached graph data.
-
-Graph-dependent requests enter an explicit degraded state and communicate that live graph context cannot currently be verified.
-
-## Commercial Intelligence
-
-ace provides an intent-gated commercial workflow capable of handling:
-
-- Commercial negotiation questions
-- Give-get strategy generation
-- Discount and margin reasoning
-- Account and relationship context
-- Autonomous deal analysis
-- Structured deal-room workflows
-
-When a customer requests a significant discount, ace can reason about exchanging the concession for commercial value such as multi-year commitments, upfront or annual billing, customer advocacy, and other mutually valuable commitments.
-
-## HydraDB OSS Integration
-
-ace communicates with HydraDB OSS through its OpenCypher HTTP API:
+## System Architecture
 
 ```text
-POST /v1/graphs/:graph_id/query
+                           ace User Interface
+                     (React + Tailwind + Hugeicons)
+                                   │
+                                   ▼
+                            ace API Server
+                        (Express + TypeScript)
+                                   │
+               ┌───────────────────┴───────────────────┐
+               │                                       │
+               ▼                                       ▼
+        Authentication                           Reasoning Layer
+      (Firebase Auth)                       (Gemini API / @google/genai)
+                                                       │
+                                                       ▲ (Grounding Context)
+                                                       │
+                                            HydraDBEngine Substrate
+                                         (Authoritative Client Layer)
+                                                       │
+                                                       ▼ OpenCypher HTTP
+                                            ┌─────────────────────┐
+                                            │     HydraDB OSS     │
+                                            │ (Graph Database)    │
+                                            └──────────┬──────────┘
+                                                       │
+                                                       ▼
+                                            Persistent Storage
+                                              ./hydradb-data/
 ```
 
-The local Docker Compose deployment exposes:
+### Component Roles
 
-| Service | Port | Purpose |
-|---|---:|---|
-| ace | `3000` | Application/API |
-| HydraDB | `8443` | OpenCypher query API |
-| HydraDB | `9090` | Readiness/admin interface |
-| HydraDB | `7687` | Bolt |
+- **HydraDB OSS (Authoritative Primary Database)**: 
+  HydraDB is the primary persistent graph substrate for all commercial intelligence, account histories, buying signals, and relationship graphs. It is not an optional cache or decorative visualizer.
+- **Gemini (Reasoning Engine)**: 
+  Gemini serves strictly as the reasoning and intelligence layer. It reasons over grounded context retrieved from HydraDB to generate deal strategies, concession trade-offs, and commercial actions. Gemini is never used as the storage layer.
+- **Firebase (Authentication)**: 
+  Firebase is responsible solely for user authentication and session management. Commercial data is never stored in Firebase.
 
-HydraDB data is persisted through:
+---
 
-```text
-./hydradb-data/
-├── store/
-├── cache/
-└── auth-token
-```
+## The ACE Commercial Ontology
 
-The directory is intentionally excluded from source control.
+ace models the B2B revenue landscape using a purpose-built commercial graph schema:
 
-## Local Development
+### Graph Node Entities
+
+| Entity | Description |
+|---|---|
+| `Account` | The client enterprise (e.g., Apex Global, Vanguard Fintech, Nexus Health). |
+| `Contact` | Key stakeholders, champions, economic buyers, or influencers within an account. |
+| `Deal` | Active commercial opportunity, contract stage, target ARR, and close timeline. |
+| `BuyingSignal` | Concrete purchase indicators (expansion need, security mandate, executive sponsor interest). |
+| `PricingConstraint` | Commercial boundaries such as target discount caps, margin floors, and payment terms. |
+| `ConcessionRule` | Structured give-get frameworks (e.g., discount traded for multi-year term or case study). |
+| `MarketCondition` | Macro factors, industry trends, and compliance standards influencing deal cycles. |
+| `AgentDecision` | Recorded decisions, strategies, and reasoning outputs generated by ace. |
+| `InteractionEpisode` | Individual conversation, meeting, email sync, or commercial touchpoint. |
+| `Competitor` | Competing solutions in the account and their positioning/pricing tactics. |
+
+### Graph Relationships
+
+| Relationship | Source Node | Target Node | Purpose |
+|---|---|---|---|
+| `PART_OF_ACCOUNT` | `Contact` / `Deal` | `Account` | Maps organizational membership and deal ownership. |
+| `CHAMPIONS` | `Contact` | `Deal` | Identifies internal advocates driving purchase momentum. |
+| `DECIDES_PRICING` | `Contact` | `Deal` | Designates economic buyers with financial sign-off authority. |
+| `BUDGET_OWNER` | `Contact` | `Account` | Pinpoints executive budget holders. |
+| `INFLUENCES` | `Contact` | `Deal` | Maps technical or commercial stakeholder influence. |
+| `HAS_OBJECTION` | `Contact` / `Account` | `MarketCondition` | Tracks blockers (compliance, deployment complexity, pricing). |
+| `PRICING_LINKED_TO` | `Deal` | `PricingConstraint` | Ties opportunities to active discounting and margin rules. |
+| `CONCESSION_TIED_TO` | `ConcessionRule` | `PricingConstraint` | Enforces give-get exchange requirements. |
+| `COMPETES_WITH` | `Account` | `Competitor` | Flags competitor presence and displacement risks. |
+| `TRIGGERED_BY` | `AgentDecision` | `InteractionEpisode` | Maintains causality trail from interactions to decisions. |
+
+---
+
+## Local Development & Setup
 
 ### Prerequisites
 
-- Docker
-- Docker Compose
-- Node.js / npm
+- **Docker** and **Docker Compose**
+- **Node.js** (v20+) and **npm**
+- **Gemini API Key**
 
-### 1. Initialize HydraDB
+### 1. Initialize HydraDB Storage & Auth Token
+
+Run the initialization script to set up persistent storage directories and generate the local authentication token:
 
 ```bash
 bash scripts/init-hydradb.sh
 ```
 
-This prepares the local HydraDB storage directories and authentication token. The generated authentication token is local-only and must never be committed.
+This creates:
+- `hydradb-data/store` (Persistent graph data store)
+- `hydradb-data/cache` (Persistent cache directory)
+- `hydradb-data/auth-token` (Secure local authorization token, ignored by git)
+- Local `.env` configured with `HYDRADB_API_KEY`
 
-### 2. Start the stack
+### 2. Configure Environment Variables
+
+Create or update `.env` using `.env.example`:
 
 ```bash
-docker compose up --build
+cp .env.example .env
 ```
 
-### 3. Check ace health
+Ensure the following variables are defined:
+
+```env
+GEMINI_API_KEY=your_gemini_api_key
+HYDRADB_URL=http://hydradb:8443
+HYDRADB_ADMIN_URL=http://hydradb:9090
+HYDRADB_GRAPH_ID=default
+HYDRADB_NAMESPACE=default
+HYDRADB_API_KEY=your_generated_hydradb_token
+```
+
+### 3. Start Services with Docker Compose
+
+Start the full stack (ACE Application + HydraDB OSS container):
 
 ```bash
-curl -i http://localhost:3000/healthz
+docker compose up --build -d
 ```
 
-### 4. Check HydraDB readiness
+Check container status:
+
+```bash
+docker compose ps
+```
+
+### 4. Verify HydraDB Connectivity & Health
+
+Check the HydraDB readiness endpoint:
 
 ```bash
 curl -i http://localhost:9090/readyz
 ```
+*Expected response: HTTP 200 OK (`ok`)*
 
-A ready HydraDB instance should return:
-
-```text
-ok
-```
-
-## Verify the HydraDB Graph
+Check ACE application health:
 
 ```bash
-curl -X POST   http://localhost:8443/v1/graphs/default/query   -H "Authorization: Bearer $HYDRADB_API_KEY"   -H "X-Graph-Namespace: default"   -H "Content-Type: application/json"   -d '{
+curl -i http://localhost:3000/healthz
+```
+*Expected response: HTTP 200 OK with system status JSON*
+
+Execute a test OpenCypher query against HydraDB OSS:
+
+```bash
+curl -X POST http://localhost:8443/v1/graphs/default/query \
+  -H "Authorization: Bearer $HYDRADB_API_KEY" \
+  -H "X-Graph-Namespace: default" \
+  -H "Content-Type: application/json" \
+  -d '{
     "cell_id": "cell-0",
-    "query": "RETURN 1 AS ok"
+    "query": "RETURN 1 AS status"
   }'
 ```
 
-Expected result:
-
+*Expected response:*
 ```json
 {
-  "columns": ["ok"],
+  "columns": ["status"],
   "data": [[1]]
 }
 ```
 
-## Verify Persistent Graph Storage
-
-Create a graph record:
-
-```bash
-curl -X POST   http://localhost:8443/v1/graphs/default/query   -H "Authorization: Bearer $HYDRADB_API_KEY"   -H "X-Graph-Namespace: default"   -H "Content-Type: application/json"   -d '{
-    "cell_id": "cell-0",
-    "query": "MERGE (n:Account {id: \"ace-demo-account\", name: \"Demo Account\"}) RETURN n"
-  }'
-```
-
-Restart HydraDB:
-
-```bash
-docker compose restart hydradb
-```
-
-Then query the same record:
-
-```bash
-curl -X POST   http://localhost:8443/v1/graphs/default/query   -H "Authorization: Bearer $HYDRADB_API_KEY"   -H "X-Graph-Namespace: default"   -H "Content-Type: application/json"   -d '{
-    "cell_id": "cell-0",
-    "query": "MATCH (n:Account {id: "\ace-demo-account\"}) RETURN n"
-  }'
-```
-
-The record should remain available after the container restart, demonstrating persistence through the HydraDB storage volume.
-
-## Environment Variables
-
-ace uses environment variables for runtime configuration and secrets.
-
-Typical configuration includes:
-
-```text
-GEMINI_API_KEY
-HYDRADB_URL
-HYDRADB_ADMIN_URL
-HYDRADB_GRAPH_ID
-HYDRADB_NAMESPACE
-HYDRADB_API_KEY
-```
-
-See `.env.example` for the configuration template.
-
-Never commit `.env`, Gemini API keys, HydraDB authentication tokens, `hydradb-data/`, or other live credentials.
+---
 
 ## API Surface
 
-```text
-GET  /healthz
-GET  /readyz
-GET  /api/health
+| Endpoint | Method | Purpose |
+|---|---|---|
+| `/healthz` | `GET` | Container readiness and system health probe. |
+| `/readyz` | `GET` | HydraDB proxy readiness check. |
+| `/api/health` | `GET` | Full system diagnostic status including HydraDB connectivity. |
+| `/api/ace/copilot` | `POST` | Agentic copilot combining HydraDB graph retrieval with Gemini reasoning. |
+| `/api/ace/analyze-deal` | `POST` | Structured commercial deal analysis and give-get concession evaluation. |
+| `/v1/graphs/:graph_id/query` | `POST` | Direct OpenCypher query proxy to authoritative HydraDB OSS instance. |
 
-POST /api/ace/copilot
-POST /api/ace/analyze-deal
-
-POST /v1/graphs/:graph_id/query
-```
-
-The graph query route is backed by the HydraDB OSS integration rather than an in-memory replacement.
+---
 
 ## Development Checks
 
+To verify code quality and production builds:
+
 ```bash
+# Type check and lint
 npm run lint
+
+# Production build compilation
 npm run build
 ```
 
-Both should complete successfully before submitting changes.
-
-## Project Structure
-
-```text
-.
-├── src/
-│   ├── services/
-│   │   ├── hydradb/
-│   │   │   └── engine.ts
-│   │   └── ace/
-│   │       └── agentOrchestrator.ts
-│   └── components/
-├── server.ts
-├── docker-compose.yml
-├── scripts/
-│   └── init-hydradb.sh
-├── .env.example
-└── LICENSE
-```
-
-## Open Source
-
-ace is open-source software released under the **Apache License 2.0**.
-
-See [`LICENSE`](LICENSE) for the complete license text.
-
-ace's license applies to this project. Third-party dependencies and HydraDB OSS remain subject to their respective licenses.
-
-## Hackathon Architecture
-
-The project is intentionally designed around a real HydraDB OSS deployment rather than a simulated graph implementation.
-
-The core architecture is:
-
-```text
-ace
-  ↓
-HydraDBEngine
-  ↓
-HydraDB OSS
-  ↓
-Persistent Graph Storage
-```
-
-HydraDB is a required graph substrate for authoritative graph operations. When it is unavailable, ace reports the degraded state instead of silently pretending that cached state is current.
+---
 
 ## License
 
-Copyright © 2026 Zarkeus Nwankwo
-
-Licensed under the Apache License, Version 2.0.
-
-See [`LICENSE`](LICENSE) for the full license text.
+ace is open-source software licensed under the **Apache License, Version 2.0**. See [`LICENSE`](LICENSE) for details.
