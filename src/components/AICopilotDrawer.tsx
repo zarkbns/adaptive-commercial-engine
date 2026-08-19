@@ -10,6 +10,7 @@ import {
   BookOpen01Icon,
 } from '@hugeicons/core-free-icons';
 import { FormattedMessage } from './FormattedMessage';
+import { TypewriterMessage } from './TypewriterMessage';
 
 interface Message {
   id: string;
@@ -53,7 +54,7 @@ export const AICopilotDrawer: React.FC<AICopilotDrawerProps> = ({ isOpen, onClos
     }
   }, [initialPrompt, isOpen]);
 
-  // Auto-scroll when messages or streaming updates occur
+  // Auto-scroll smoothly when messages or streaming updates occur
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isThinking, streamingMessageId]);
@@ -130,8 +131,11 @@ export const AICopilotDrawer: React.FC<AICopilotDrawerProps> = ({ isOpen, onClos
                   msg.id === botMsgId ? { ...msg, text: msg.text + (data.text || '') } : msg
                 )
               );
+            } else if (data.type === 'done') {
+              setStreamingMessageId(null);
             } else if (data.type === 'error') {
               setIsThinking(false);
+              setStreamingMessageId(null);
               setMessages((prev) => [
                 ...prev,
                 {
@@ -149,6 +153,7 @@ export const AICopilotDrawer: React.FC<AICopilotDrawerProps> = ({ isOpen, onClos
       }
     } catch (err: any) {
       setIsThinking(false);
+      setStreamingMessageId(null);
       setMessages((prev) => [
         ...prev,
         {
@@ -192,27 +197,33 @@ export const AICopilotDrawer: React.FC<AICopilotDrawerProps> = ({ isOpen, onClos
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 text-xs">
-        {messages.map((m) => (
-          <div
-            key={m.id}
-            className={`flex flex-col ${m.sender === 'user' ? 'items-end' : 'items-start'}`}
-          >
+        {messages.map((m) => {
+          const isCurrentlyStreaming = streamingMessageId === m.id;
+
+          return (
             <div
-              className={`max-w-[92%] rounded-2xl p-4 leading-relaxed ${
-                m.sender === 'user'
-                  ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 rounded-br-none shadow-xs'
-                  : 'bg-[#f7f4ee] text-zinc-800 dark:bg-zinc-800 dark:text-zinc-100 rounded-bl-none border border-[#e6ded3] dark:border-zinc-700/60'
-              }`}
+              key={m.id}
+              className={`flex flex-col ${m.sender === 'user' ? 'items-end' : 'items-start'}`}
             >
-              {m.sender === 'user' ? (
-                <div className="whitespace-pre-wrap">{m.text}</div>
-              ) : (
-                <FormattedMessage text={m.text} />
-              )}
+              <div
+                className={`max-w-[92%] rounded-2xl p-4 leading-relaxed ${
+                  m.sender === 'user'
+                    ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 rounded-br-none shadow-xs'
+                    : 'bg-[#f7f4ee] text-zinc-800 dark:bg-zinc-800 dark:text-zinc-100 rounded-bl-none border border-[#e6ded3] dark:border-zinc-700/60'
+                }`}
+              >
+                {m.sender === 'user' ? (
+                  <div className="whitespace-pre-wrap">{m.text}</div>
+                ) : isCurrentlyStreaming ? (
+                  <TypewriterMessage fullText={m.text} isStreaming={true} />
+                ) : (
+                  <FormattedMessage text={m.text} />
+                )}
+              </div>
+              <span className="text-[10px] text-zinc-400 mt-1 px-1">{m.timestamp}</span>
             </div>
-            <span className="text-[10px] text-zinc-400 mt-1 px-1">{m.timestamp}</span>
-          </div>
-        ))}
+          );
+        })}
 
         {isThinking && (
           <div className="flex items-center space-x-2 text-zinc-400 text-xs p-2">
