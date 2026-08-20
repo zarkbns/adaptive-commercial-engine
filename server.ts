@@ -433,22 +433,47 @@ app.post('/api/ace/copilot', async (req, res) => {
 
   // Query authoritative HydraDB graph context
   let retrievedContext: any[] = [];
+  let retrievedRelations: any[] = [];
   let isLiveHydraDB = false;
   let hydraError: string | null = null;
+  let totalGraphNodes = 0;
+
   try {
     const hydraEngine = HydraDBEngine.getInstance();
     const liveSnapshot = await hydraEngine.fetchAuthoritativeGraphSnapshot();
-    if (liveSnapshot && liveSnapshot.nodes && liveSnapshot.nodes.length > 0) {
+    if (liveSnapshot && liveSnapshot.nodes) {
       isLiveHydraDB = true;
-      const q = prompt.toLowerCase();
-      retrievedContext = liveSnapshot.nodes.filter((n) => {
-        const label = (n.label || '').toLowerCase();
-        const props = JSON.stringify(n.properties || {}).toLowerCase();
-        const tags = (n.tags || []).join(' ').toLowerCase();
-        return q.includes(label) || props.includes(q) || tags.includes(q) || label.includes(q.slice(0, 5));
-      });
-      if (retrievedContext.length === 0) {
-        retrievedContext = liveSnapshot.nodes.slice(0, 15);
+      totalGraphNodes = liveSnapshot.nodes.length;
+      const allNodes = liveSnapshot.nodes;
+      const allEdges = liveSnapshot.edges || [];
+
+      if (allNodes.length > 0) {
+        const q = prompt.toLowerCase();
+        // Match relevant entities (or provide recent active customer entities if generic prompt)
+        const matched = allNodes.filter((n) => {
+          const label = (n.label || '').toLowerCase();
+          const props = JSON.stringify(n.properties || {}).toLowerCase();
+          const tags = (n.tags || []).join(' ').toLowerCase();
+          return q.includes(label) || props.includes(q) || tags.includes(q) || (label.length > 3 && q.includes(label.slice(0, 4)));
+        });
+
+        retrievedContext = matched.length > 0 ? matched : allNodes.slice(0, 20);
+
+        // Extract connected edges and neighbor facts for the matched entities
+        const nodeIds = new Set(retrievedContext.map((n) => n.id));
+        retrievedRelations = allEdges.filter((e) => nodeIds.has(e.sourceId) || nodeIds.has(e.targetId));
+
+        // Pull in any directly connected neighbor nodes that provide crucial relationship context
+        const neighborIds = new Set<string>();
+        retrievedRelations.forEach((e) => {
+          if (!nodeIds.has(e.sourceId)) neighborIds.add(e.sourceId);
+          if (!nodeIds.has(e.targetId)) neighborIds.add(e.targetId);
+        });
+
+        if (neighborIds.size > 0) {
+          const neighborNodes = allNodes.filter((n) => neighborIds.has(n.id));
+          retrievedContext = [...retrievedContext, ...neighborNodes];
+        }
       }
     }
   } catch (liveErr: any) {
@@ -456,22 +481,61 @@ app.post('/api/ace/copilot', async (req, res) => {
     console.warn('HydraDB context retrieval notice:', hydraError);
   }
 
-  // Build context block purely from HydraDB retrieved nodes
-  const graphContextBlock = retrievedContext.length > 0
-    ? `AUTHORITATIVE CUSTOMER GRAPH CONTEXT FROM HYDRADB:\n${JSON.stringify(retrievedContext, null, 2)}`
-    : isLiveHydraDB
-    ? 'HYDRADB STATUS: Connected, but no matching customer entities were found for this query.'
-    : `HYDRADB STATUS: Database unavailable (${hydraError}). No customer memory retrieved.`;
+  // 5. HydraDB Outage / Disconnection Guard: Explicitly report that live customer context cannot be verified
+  if (!isLiveHydraDB) {
+    const outageMessage = `The authoritative customer memory graph (HydraDB OSS) is currently unavailable or disconnected (${hydraError || 'Service unreachable'}). Live customer context, recent interactions, and account facts cannot be verified. Information will not be fabricated.`;
+    sendEvent({ type: 'chunk', text: outageMessage });
+    sendEvent({ type: 'done' });
+    res.end();
+    return;
+  }
+
+  // If HydraDB is connected but has zero records
+  if (totalGraphNodes === 0) {
+    const emptyMessage = `HydraDB OSS graph is connected and ready, but the customer memory graph is currently empty (0 accounts, 0 interactions). No customer records have been ingested yet.`;
+    sendEvent({ type: 'chunk', text: emptyMessage });
+    sendEvent({ type: 'done' });
+    res.end();
+    return;
+  }
+
+  // Build connected graph context block purely from HydraDB retrieved nodes and relations
+  const graphContextBlock = `AUTHORITATIVE CUSTOMER GRAPH CONTEXT FROM HYDRADB OSS:
+Graph Entities (${retrievedContext.length} nodes):
+${JSON.stringify(
+  retrievedContext.map((n) => ({
+    id: n.id,
+    type: n.type,
+    label: n.label,
+    tier: n.tier,
+    properties: n.properties,
+    tags: n.tags,
+  })),
+  null,
+  2
+)}
+
+Graph Relationships & Connections (${retrievedRelations.length} edges):
+${JSON.stringify(
+  retrievedRelations.map((e) => ({
+    relationship: e.relationship,
+    sourceId: e.sourceId,
+    targetId: e.targetId,
+    weight: e.weight,
+    properties: e.properties,
+  })),
+  null,
+  2
+)}`;
 
   const systemInstruction = `You are ace, an intelligent Customer Intelligence Agent and persistent business memory.
 Your purpose is to reason over persistent, connected customer knowledge stored in HydraDB across emails, conversations, meetings, and relationship histories.
 
 Tone & Behavior Guidelines:
-1. You are engaging, intelligent, conversational, direct, and helpful. You hold genuine, natural multi-turn conversations with the user.
-2. Ground all customer answers exclusively in the retrieved customer graph context below. Never invent or hallucinate customer entities, deals, or facts.
-3. If the graph context is empty or HydraDB is unavailable, explain politely that no customer context is available or connected in memory yet.
-4. When the user asks general or greeting questions (e.g. "what are you", "who are you", "help me"), answer conversationally like a smart colleague.
-5. NEVER output technical database jargon, "OpenCypher syntax", or internal database schemas. Speak naturally from your accumulated customer memory.
+1. Ground all customer answers exclusively in the retrieved customer graph context below. Connect facts across multiple entities (e.g. Stakeholders -> Accounts -> Interactions -> Requirements -> Commercial Deals).
+2. When answering "What have we learned about this customer from their recent interactions, and what should we pay attention to next?", synthesize the concrete details from recent interaction episodes, identify the stakeholder/champion involved, state their objections or requirements, note commercial deal status, and provide the exact next action/date.
+3. Never invent or hallucinate customer entities, deals, or facts.
+4. Speak naturally from your accumulated customer memory as an intelligent teammate. Do NOT recite raw OpenCypher syntax or JSON structures.
 
 ${graphContextBlock}
 `;
@@ -867,6 +931,56 @@ async function bootstrapHydraDBIfEmpty() {
 
         // Patterns & Requirements
         {
+          id: 'req_apex_onboarding',
+          type: 'PricingConstraint',
+          label: 'Dedicated Onboarding Engineer & Milestone Sign-Off',
+          tier: 'hot',
+          properties: {
+            category: 'Requirement',
+            customer: 'Apex Global Logistics',
+            priority: 'High',
+            details: 'Customer requires dedicated solutions engineer assigned for 60-day migration to mitigate freight tracker downtime.',
+          },
+          tags: ['Requirement', 'OnboardingSLA'],
+        },
+        {
+          id: 'req_vanguard_sso',
+          type: 'PricingConstraint',
+          label: 'Enterprise SSO & Multi-Tenant RBAC',
+          tier: 'hot',
+          properties: {
+            category: 'Requirement',
+            customer: 'Vanguard Fintech Group',
+            priority: 'Critical',
+            details: 'Granular access control across 4 UK and European banking subsidiaries.',
+          },
+          tags: ['Requirement', 'Security', 'SSO'],
+        },
+        {
+          id: 'req_nexus_compliance',
+          type: 'PricingConstraint',
+          label: 'SOC 2 Type II & HIPAA BAA Certification',
+          tier: 'warm',
+          properties: {
+            category: 'Requirement',
+            customer: 'Nexus Health Systems',
+            priority: 'Mandatory',
+            details: 'Healthcare compliance documentation required before pilot launch.',
+          },
+          tags: ['Requirement', 'Compliance', 'Healthcare'],
+        },
+        {
+          id: 'rule_annual_advance',
+          type: 'ConcessionRule',
+          label: 'Annual Advance Invoicing for Multi-Year Rate Lock',
+          tier: 'hot',
+          properties: {
+            trade: 'Trade 10-15% multi-year discount in exchange for annual upfront cash payment',
+            minMargin: 78.0,
+          },
+          tags: ['ConcessionRule', 'GiveGet', 'CommercialPolicy'],
+        },
+        {
           id: 'signal_speed_priority',
           type: 'BuyingSignal',
           label: 'Market Pattern: Implementation Speed Outweighs Features',
@@ -953,6 +1067,12 @@ async function bootstrapHydraDBIfEmpty() {
         { id: 'rel_c_summit', sourceId: 'contact_david_kim', targetId: 'acc_summit', relationship: 'PART_OF_ACCOUNT', weight: 1.0 },
         { id: 'rel_c_beacon', sourceId: 'contact_rachel_adams', targetId: 'acc_beacon', relationship: 'PART_OF_ACCOUNT', weight: 1.0 },
 
+        // Champions & Decisions
+        { id: 'rel_sarah_champ', sourceId: 'contact_sarah_chen', targetId: 'deal_apex_3yr', relationship: 'CHAMPIONS', weight: 0.95 },
+        { id: 'rel_elena_champ', sourceId: 'contact_elena_rostova', targetId: 'deal_vanguard_global', relationship: 'CHAMPIONS', weight: 0.98 },
+        { id: 'rel_david_budget', sourceId: 'contact_david_kim', targetId: 'acc_summit', relationship: 'BUDGET_OWNER', weight: 0.94 },
+        { id: 'rel_marcus_decides', sourceId: 'contact_marcus_vance', targetId: 'deal_nexus_health', relationship: 'DECIDES_PRICING', weight: 0.96 },
+
         // Interactions to Accounts
         { id: 'rel_i_apex', sourceId: 'conv_apex_01', targetId: 'acc_apex', relationship: 'TRIGGERED_BY', weight: 1.0 },
         { id: 'rel_i_vanguard', sourceId: 'conv_vanguard_01', targetId: 'acc_vanguard', relationship: 'TRIGGERED_BY', weight: 1.0 },
@@ -964,6 +1084,11 @@ async function bootstrapHydraDBIfEmpty() {
         { id: 'rel_d_apex', sourceId: 'deal_apex_3yr', targetId: 'acc_apex', relationship: 'PART_OF_ACCOUNT', weight: 1.0 },
         { id: 'rel_d_vanguard', sourceId: 'deal_vanguard_global', targetId: 'acc_vanguard', relationship: 'PART_OF_ACCOUNT', weight: 1.0 },
         { id: 'rel_d_nexus', sourceId: 'deal_nexus_health', targetId: 'acc_nexus', relationship: 'PART_OF_ACCOUNT', weight: 1.0 },
+
+        // Constraints & Concession Rules
+        { id: 'rel_d_apex_req', sourceId: 'deal_apex_3yr', targetId: 'req_apex_onboarding', relationship: 'PRICING_LINKED_TO', weight: 1.0 },
+        { id: 'rel_d_van_req', sourceId: 'deal_vanguard_global', targetId: 'req_vanguard_sso', relationship: 'PRICING_LINKED_TO', weight: 1.0 },
+        { id: 'rel_rule_apex', sourceId: 'rule_annual_advance', targetId: 'req_apex_onboarding', relationship: 'CONCESSION_TIED_TO', weight: 1.0 },
       ],
     });
 
