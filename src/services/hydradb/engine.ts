@@ -139,10 +139,27 @@ export class HydraDBEngine {
   public async executeCypher(query: string, parameters: Record<string, any> = {}): Promise<HttpQueryResponseBody> {
     const startTime = performance.now();
     const endpoint = `${this.baseUrl}/v1/graphs/${encodeURIComponent(this.graphId)}/query`;
+
+    // Ensure parameters strictly contain valid HydraDB types: boolean, integer, float, string, list, or string-keyed map
+    const sanitizedParams: Record<string, any> = {};
+    for (const [k, v] of Object.entries(parameters)) {
+      if (v === null || v === undefined) {
+        sanitizedParams[k] = '';
+      } else if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
+        sanitizedParams[k] = v;
+      } else if (Array.isArray(v)) {
+        sanitizedParams[k] = v.map((item) => (item === null || item === undefined ? '' : item));
+      } else if (typeof v === 'object') {
+        sanitizedParams[k] = v;
+      } else {
+        sanitizedParams[k] = String(v);
+      }
+    }
+
     const body: HttpQueryRequestBody = {
       cell_id: 'cell-0',
       query,
-      parameters,
+      parameters: sanitizedParams,
       timeout_ms: 30000,
     };
 
@@ -228,16 +245,16 @@ export class HydraDBEngine {
           `;
 
           await this.executeCypher(cypher, {
-            id: ent.id,
-            type: nodeType,
-            label: nodeLabel,
-            tier,
+            id: String(ent.id),
+            type: String(nodeType),
+            label: String(nodeLabel),
+            tier: String(tier),
             properties: propertiesJson,
-            tags,
-            validFrom: ent.validFrom || timestamp,
-            validTo: ent.validTo || null,
-            authorAgent: payload.authorAgent || 'ace Substrate',
-            updatedAt: timestamp,
+            tags: Array.isArray(tags) ? tags : [],
+            validFrom: String(ent.validFrom || timestamp),
+            validTo: ent.validTo ? String(ent.validTo) : '',
+            authorAgent: String(payload.authorAgent || 'ace Substrate'),
+            updatedAt: String(timestamp),
           });
 
           stagedNodes.push({
@@ -277,14 +294,14 @@ export class HydraDBEngine {
           `;
 
           await this.executeCypher(cypher, {
-            id: rel.id,
-            sourceId: rel.sourceId,
-            targetId: rel.targetId,
-            relationship,
-            weight,
+            id: String(rel.id),
+            sourceId: String(rel.sourceId),
+            targetId: String(rel.targetId),
+            relationship: String(relationship),
+            weight: Number(weight),
             properties: propertiesJson,
-            validFrom: rel.validFrom || timestamp,
-            validTo: rel.validTo || null,
+            validFrom: String(rel.validFrom || timestamp),
+            validTo: rel.validTo ? String(rel.validTo) : '',
           });
 
           stagedEdges.push({
@@ -380,7 +397,7 @@ export class HydraDBEngine {
 
     const cypher = `
       MATCH (n)
-      WHERE ($entityTypes IS NULL OR size($entityTypes) = 0 OR n.type IN $entityTypes)
+      WHERE (size($entityTypes) = 0 OR n.type IN $entityTypes)
       OPTIONAL MATCH (n)-[r]-(m)
       RETURN n.id AS id, n.type AS type, n.label AS label, n.properties AS properties,
              n.tier AS tier, n.validFrom AS validFrom, n.validTo AS validTo,
@@ -401,8 +418,8 @@ export class HydraDBEngine {
 
     // Direct authoritative execution against HydraDB OSS
     const resp = await this.executeCypher(cypher, {
-      entityTypes: options.entityTypes || null,
-      limit: options.limit || 20,
+      entityTypes: Array.isArray(options.entityTypes) ? options.entityTypes : [],
+      limit: typeof options.limit === 'number' ? options.limit : 20,
     });
 
     const rows = resp.rows || resp.data || [];
@@ -572,19 +589,22 @@ export class HydraDBEngine {
    * Updates read cache ONLY on successful response.
    */
   public async getRelations(params?: { entityType?: string; entityId?: string }): Promise<HydraRelationsResponse> {
+    const entityTypeParam = typeof params?.entityType === 'string' ? params.entityType : '';
+    const entityIdParam = typeof params?.entityId === 'string' ? params.entityId : '';
+
     // 1. Fetch Vertices via Cypher
     const nodeCypher = `
       MATCH (n)
-      WHERE ($entityType IS NULL OR n.type = $entityType)
-        AND ($entityId IS NULL OR n.id = $entityId)
+      WHERE ($entityType = '' OR n.type = $entityType)
+        AND ($entityId = '' OR n.id = $entityId)
       RETURN n.id AS id, n.type AS type, n.label AS label, n.properties AS properties,
              n.tier AS tier, n.validFrom AS validFrom, n.validTo AS validTo,
              n.commitHash AS commitHash, n.version AS version, n.tags AS tags
     `;
 
     const nodeResp = await this.executeCypher(nodeCypher, {
-      entityType: params?.entityType || null,
-      entityId: params?.entityId || null,
+      entityType: entityTypeParam,
+      entityId: entityIdParam,
     });
 
     const fetchedNodes: HydraMemoryNode[] = [];

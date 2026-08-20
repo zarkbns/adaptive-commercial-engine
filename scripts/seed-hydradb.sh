@@ -90,6 +90,17 @@ SET n.type = 'Account',
 "
 
 execute_cypher "
+MERGE (n:Account {id: 'acc_acme'})
+SET n.type = 'Account',
+    n.label = 'Acme Corp',
+    n.tier = 'hot',
+    n.properties = '{\"domain\":\"acmecorp.com\",\"industry\":\"Global Manufacturing & SaaS\",\"tier\":\"Strategic Enterprise\",\"dealValue\":380000,\"status\":\"In Negotiation\",\"lastContact\":\"Yesterday, 4:30 PM\",\"nextAction\":\"Deliver updated concession schedule and technical sandbox specs\",\"nextActionDate\":\"Thursday at 11:00 AM\",\"assignedRep\":\"Alex Morgan\",\"notes\":\"Champion John Miller has advocated for platform expansion across 3 core operating divisions. Initial security objection resolved; finalizing enterprise concession schedule.\"}',
+    n.tags = ['Enterprise', 'Manufacturing', 'ActiveNegotiation', 'ChampionAligned'],
+    n.validFrom = '2026-08-01T00:00:00Z',
+    n.updatedAt = '2026-08-19T16:30:00Z'
+"
+
+execute_cypher "
 MERGE (n:Account {id: 'acc_beacon'})
 SET n.type = 'Account',
     n.label = 'Beacon Retail Group',
@@ -101,6 +112,16 @@ SET n.type = 'Account',
 "
 
 echo "--> Ingesting Customer Stakeholders (Contact nodes)..."
+execute_cypher "
+MERGE (n:Contact {id: 'contact_john_miller'})
+SET n.type = 'Contact',
+    n.label = 'John Miller',
+    n.tier = 'hot',
+    n.properties = '{\"role\":\"VP of Platform Operations\",\"company\":\"Acme Corp\",\"email\":\"john.miller@acmecorp.com\",\"phone\":\"+1 (415) 555-0189\",\"sentiment\":\"Strong Internal Champion & Executive Sponsor\",\"influenceScore\":0.97,\"champion\":true,\"notes\":\"Champion relationship has evolved from initial technical evaluation to active internal advocacy across executive leadership. Successfully resolved initial SSO/compliance gating and is now pushing for multi-year enterprise sign-off.\"}',
+    n.tags = ['Champion', 'PlatformOps', 'ExecutiveSponsor'],
+    n.validFrom = '2026-08-01T00:00:00Z'
+"
+
 execute_cypher "
 MERGE (n:Contact {id: 'contact_sarah_chen'})
 SET n.type = 'Contact',
@@ -163,6 +184,16 @@ SET n.type = 'Contact',
 
 echo "--> Ingesting Customer Interactions & Conversations..."
 execute_cypher "
+MERGE (n:InteractionEpisode {id: 'conv_acme_01'})
+SET n.type = 'InteractionEpisode',
+    n.label = 'Quarterly Executive Review & Multi-Division Expansion Sync',
+    n.tier = 'hot',
+    n.properties = '{\"channel\":\"Executive Briefing\",\"timestamp\":\"Yesterday, 4:30 PM\",\"participants\":[\"John Miller\",\"Alex Morgan\"],\"customerName\":\"John Miller\",\"company\":\"Acme Corp\",\"summary\":\"John Miller affirmed that their division-level pilot exceeded KPIs with a 40% reduction in response latency. Relationship has matured from cautious technical diligence into strong executive sponsorship. John is championing the $380k ARR enterprise agreement across 3 business units, provided we include a dedicated staging sandbox and annual advance billing discount.\"}',
+    n.tags = ['Conversation', 'ExecutiveReview', 'ChampionEvolution', 'Expansion'],
+    n.validFrom = '2026-08-19T16:30:00Z'
+"
+
+execute_cypher "
 MERGE (n:InteractionEpisode {id: 'conv_apex_01'})
 SET n.type = 'InteractionEpisode',
     n.label = 'Architecture & Legacy Freight Integration Review',
@@ -213,6 +244,16 @@ SET n.type = 'InteractionEpisode',
 "
 
 echo "--> Ingesting Requirements, Preferences, and Emerging Patterns..."
+execute_cypher "
+MERGE (n:PricingConstraint {id: 'req_acme_sandbox'})
+SET n.type = 'PricingConstraint',
+    n.label = 'Dedicated Staging Sandbox & Enterprise SSO',
+    n.tier = 'hot',
+    n.properties = '{\"category\":\"Requirement\",\"customer\":\"Acme Corp\",\"priority\":\"High\",\"details\":\"Dedicated staging sandbox environment and Okta SSO integration required for multi-division deployment.\"}',
+    n.tags = ['Requirement', 'Infrastructure', 'SSO'],
+    n.validFrom = '2026-08-19T00:00:00Z'
+"
+
 execute_cypher "
 MERGE (n:PricingConstraint {id: 'req_apex_onboarding'})
 SET n.type = 'PricingConstraint',
@@ -275,6 +316,16 @@ SET n.type = 'BuyingSignal',
 
 echo "--> Ingesting Commercial Agreements (Deal nodes)..."
 execute_cypher "
+MERGE (n:Deal {id: 'deal_acme_enterprise'})
+SET n.type = 'Deal',
+    n.label = 'Acme Corp Enterprise Multi-Division Agreement',
+    n.tier = 'hot',
+    n.properties = '{\"title\":\"Acme Corp Enterprise Multi-Division Agreement\",\"company\":\"Acme Corp\",\"consumerName\":\"John Miller\",\"value\":380000,\"targetArr\":380000,\"stage\":\"Negotiation\",\"probability\":90,\"closeDate\":\"End of Month\",\"nextStep\":\"Deliver final concession schedule and SLA addendum to John Miller\"}',
+    n.tags = ['EnterpriseDeal', 'Negotiation', 'HighConfidence'],
+    n.validFrom = '2026-08-01T00:00:00Z'
+"
+
+execute_cypher "
 MERGE (n:Deal {id: 'deal_apex_3yr'})
 SET n.type = 'Deal',
     n.label = 'Apex Global Enterprise Agreement',
@@ -306,6 +357,7 @@ SET n.type = 'Deal',
 
 echo "--> Ingesting Graph Relationships & Connections..."
 # Link Contacts to Accounts
+execute_cypher "MATCH (c:Contact {id: 'contact_john_miller'}), (a:Account {id: 'acc_acme'}) MERGE (c)-[r:RELATION {id: 'rel_c_acme'}]->(a) SET r.relationship = 'PART_OF_ACCOUNT', r.weight = 1.0"
 execute_cypher "MATCH (c:Contact {id: 'contact_sarah_chen'}), (a:Account {id: 'acc_apex'}) MERGE (c)-[r:RELATION {id: 'rel_c_apex'}]->(a) SET r.relationship = 'PART_OF_ACCOUNT', r.weight = 1.0"
 execute_cypher "MATCH (c:Contact {id: 'contact_elena_rostova'}), (a:Account {id: 'acc_vanguard'}) MERGE (c)-[r:RELATION {id: 'rel_c_vanguard'}]->(a) SET r.relationship = 'PART_OF_ACCOUNT', r.weight = 1.0"
 execute_cypher "MATCH (c:Contact {id: 'contact_marcus_vance'}), (a:Account {id: 'acc_nexus'}) MERGE (c)-[r:RELATION {id: 'rel_c_nexus'}]->(a) SET r.relationship = 'PART_OF_ACCOUNT', r.weight = 1.0"
@@ -314,12 +366,14 @@ execute_cypher "MATCH (c:Contact {id: 'contact_david_kim'}), (a:Account {id: 'ac
 execute_cypher "MATCH (c:Contact {id: 'contact_rachel_adams'}), (a:Account {id: 'acc_beacon'}) MERGE (c)-[r:RELATION {id: 'rel_c_beacon'}]->(a) SET r.relationship = 'PART_OF_ACCOUNT', r.weight = 1.0"
 
 # Link Champions & Decisions
+execute_cypher "MATCH (c:Contact {id: 'contact_john_miller'}), (d:Deal {id: 'deal_acme_enterprise'}) MERGE (c)-[r:RELATION {id: 'rel_john_champ'}]->(d) SET r.relationship = 'CHAMPIONS', r.weight = 0.99"
 execute_cypher "MATCH (c:Contact {id: 'contact_sarah_chen'}), (d:Deal {id: 'deal_apex_3yr'}) MERGE (c)-[r:RELATION {id: 'rel_sarah_champ'}]->(d) SET r.relationship = 'CHAMPIONS', r.weight = 0.95"
 execute_cypher "MATCH (c:Contact {id: 'contact_elena_rostova'}), (d:Deal {id: 'deal_vanguard_global'}) MERGE (c)-[r:RELATION {id: 'rel_elena_champ'}]->(d) SET r.relationship = 'CHAMPIONS', r.weight = 0.98"
 execute_cypher "MATCH (c:Contact {id: 'contact_david_kim'}), (a:Account {id: 'acc_summit'}) MERGE (c)-[r:RELATION {id: 'rel_david_budget'}]->(a) SET r.relationship = 'BUDGET_OWNER', r.weight = 0.94"
 execute_cypher "MATCH (c:Contact {id: 'contact_marcus_vance'}), (d:Deal {id: 'deal_nexus_health'}) MERGE (c)-[r:RELATION {id: 'rel_marcus_decides'}]->(d) SET r.relationship = 'DECIDES_PRICING', r.weight = 0.96"
 
 # Link Interactions to Accounts
+execute_cypher "MATCH (i:InteractionEpisode {id: 'conv_acme_01'}), (a:Account {id: 'acc_acme'}) MERGE (i)-[r:RELATION {id: 'rel_i_acme'}]->(a) SET r.relationship = 'TRIGGERED_BY', r.weight = 1.0"
 execute_cypher "MATCH (i:InteractionEpisode {id: 'conv_apex_01'}), (a:Account {id: 'acc_apex'}) MERGE (i)-[r:RELATION {id: 'rel_i_apex'}]->(a) SET r.relationship = 'TRIGGERED_BY', r.weight = 1.0"
 execute_cypher "MATCH (i:InteractionEpisode {id: 'conv_vanguard_01'}), (a:Account {id: 'acc_vanguard'}) MERGE (i)-[r:RELATION {id: 'rel_i_vanguard'}]->(a) SET r.relationship = 'TRIGGERED_BY', r.weight = 1.0"
 execute_cypher "MATCH (i:InteractionEpisode {id: 'conv_nexus_01'}), (a:Account {id: 'acc_nexus'}) MERGE (i)-[r:RELATION {id: 'rel_i_nexus'}]->(a) SET r.relationship = 'TRIGGERED_BY', r.weight = 1.0"
@@ -327,11 +381,13 @@ execute_cypher "MATCH (i:InteractionEpisode {id: 'conv_hyperion_01'}), (a:Accoun
 execute_cypher "MATCH (i:InteractionEpisode {id: 'conv_summit_01'}), (a:Account {id: 'acc_summit'}) MERGE (i)-[r:RELATION {id: 'rel_i_summit'}]->(a) SET r.relationship = 'TRIGGERED_BY', r.weight = 1.0"
 
 # Link Deals to Accounts
+execute_cypher "MATCH (d:Deal {id: 'deal_acme_enterprise'}), (a:Account {id: 'acc_acme'}) MERGE (d)-[r:RELATION {id: 'rel_deal_acme_acc'}]->(a) SET r.relationship = 'PART_OF_ACCOUNT', r.weight = 1.0"
 execute_cypher "MATCH (d:Deal {id: 'deal_apex_3yr'}), (a:Account {id: 'acc_apex'}) MERGE (d)-[r:RELATION {id: 'rel_deal_apex_acc'}]->(a) SET r.relationship = 'PART_OF_ACCOUNT', r.weight = 1.0"
 execute_cypher "MATCH (d:Deal {id: 'deal_vanguard_global'}), (a:Account {id: 'acc_vanguard'}) MERGE (d)-[r:RELATION {id: 'rel_deal_van_acc'}]->(a) SET r.relationship = 'PART_OF_ACCOUNT', r.weight = 1.0"
 execute_cypher "MATCH (d:Deal {id: 'deal_nexus_health'}), (a:Account {id: 'acc_nexus'}) MERGE (d)-[r:RELATION {id: 'rel_deal_nex_acc'}]->(a) SET r.relationship = 'PART_OF_ACCOUNT', r.weight = 1.0"
 
 # Link Constraints & Concession Rules
+execute_cypher "MATCH (d:Deal {id: 'deal_acme_enterprise'}), (c:PricingConstraint {id: 'req_acme_sandbox'}) MERGE (d)-[r:RELATION {id: 'rel_d_acme_req'}]->(c) SET r.relationship = 'PRICING_LINKED_TO', r.weight = 1.0"
 execute_cypher "MATCH (d:Deal {id: 'deal_apex_3yr'}), (c:PricingConstraint {id: 'req_apex_onboarding'}) MERGE (d)-[r:RELATION {id: 'rel_d_apex_req'}]->(c) SET r.relationship = 'PRICING_LINKED_TO', r.weight = 1.0"
 execute_cypher "MATCH (d:Deal {id: 'deal_vanguard_global'}), (c:PricingConstraint {id: 'req_vanguard_sso'}) MERGE (d)-[r:RELATION {id: 'rel_d_van_req'}]->(c) SET r.relationship = 'PRICING_LINKED_TO', r.weight = 1.0"
 execute_cypher "MATCH (r:ConcessionRule {id: 'rule_annual_advance'}), (c:PricingConstraint {id: 'req_apex_onboarding'}) MERGE (r)-[rel:RELATION {id: 'rel_rule_apex'}]->(c) SET rel.relationship = 'CONCESSION_TIED_TO', rel.weight = 1.0"

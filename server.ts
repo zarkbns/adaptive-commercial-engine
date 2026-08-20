@@ -449,15 +449,24 @@ app.post('/api/ace/copilot', async (req, res) => {
 
       if (allNodes.length > 0) {
         const q = prompt.toLowerCase();
-        // Match relevant entities (or provide recent active customer entities if generic prompt)
-        const matched = allNodes.filter((n) => {
-          const label = (n.label || '').toLowerCase();
-          const props = JSON.stringify(n.properties || {}).toLowerCase();
-          const tags = (n.tags || []).join(' ').toLowerCase();
-          return q.includes(label) || props.includes(q) || tags.includes(q) || (label.length > 3 && q.includes(label.slice(0, 4)));
-        });
+        const isBroadQuery = q.includes('all') || q.includes('across') || q.includes('insights') || q.includes('conversations') || q.includes('overview') || q.includes('patterns') || q.includes('trend');
 
-        retrievedContext = matched.length > 0 ? matched : allNodes.slice(0, 20);
+        let matched: any[] = [];
+        if (isBroadQuery) {
+          matched = allNodes;
+        } else {
+          const words = q.split(/[^a-zA-Z0-9]+/).filter((w) => w.length > 2);
+          matched = allNodes.filter((n) => {
+            const label = (n.label || '').toLowerCase();
+            const props = JSON.stringify(n.properties || {}).toLowerCase();
+            const tags = (n.tags || []).join(' ').toLowerCase();
+            const id = (n.id || '').toLowerCase();
+            const tokenMatch = words.some((w) => label.includes(w) || props.includes(w) || tags.includes(w) || id.includes(w));
+            return q.includes(label) || label.includes(q) || props.includes(q) || tags.includes(q) || tokenMatch;
+          });
+        }
+
+        retrievedContext = matched.length > 0 ? matched : allNodes;
 
         // Extract connected edges and neighbor facts for the matched entities
         const nodeIds = new Set(retrievedContext.map((n) => n.id));
@@ -471,7 +480,7 @@ app.post('/api/ace/copilot', async (req, res) => {
         });
 
         if (neighborIds.size > 0) {
-          const neighborNodes = allNodes.filter((n) => neighborIds.has(n.id));
+          const neighborNodes = allNodes.filter((n) => neighborIds.has(n.id) && !nodeIds.has(n.id));
           retrievedContext = [...retrievedContext, ...neighborNodes];
         }
       }
@@ -743,6 +752,24 @@ async function bootstrapHydraDBIfEmpty() {
           tags: ['Enterprise', 'Media', 'AnnualBilling'],
         },
         {
+          id: 'acc_acme',
+          type: 'Account',
+          label: 'Acme Corp',
+          tier: 'hot',
+          properties: {
+            domain: 'acmecorp.com',
+            industry: 'Global Manufacturing & SaaS',
+            dealValue: 380000,
+            status: 'In Negotiation',
+            lastContact: 'Yesterday, 4:30 PM',
+            nextAction: 'Deliver updated concession schedule and technical sandbox specs',
+            nextActionDate: 'Thursday at 11:00 AM',
+            assignedRep: 'Alex Morgan',
+            notes: 'Champion John Miller has advocated for platform expansion across 3 core operating divisions. Initial security objection resolved; finalizing enterprise concession schedule.',
+          },
+          tags: ['Enterprise', 'Manufacturing', 'ActiveNegotiation', 'ChampionAligned'],
+        },
+        {
           id: 'acc_beacon',
           type: 'Account',
           label: 'Beacon Retail Group',
@@ -762,6 +789,22 @@ async function bootstrapHydraDBIfEmpty() {
         },
 
         // Contacts
+        {
+          id: 'contact_john_miller',
+          type: 'Contact',
+          label: 'John Miller',
+          tier: 'hot',
+          properties: {
+            role: 'VP of Platform Operations',
+            company: 'Acme Corp',
+            email: 'john.miller@acmecorp.com',
+            phone: '+1 (415) 555-0189',
+            sentiment: 'Strong Internal Champion & Executive Sponsor',
+            champion: true,
+            notes: 'Champion relationship has evolved from initial technical evaluation to active internal advocacy across executive leadership. Successfully resolved initial SSO/compliance gating and is now pushing for multi-year enterprise sign-off.',
+          },
+          tags: ['Champion', 'PlatformOps', 'ExecutiveSponsor'],
+        },
         {
           id: 'contact_sarah_chen',
           type: 'Contact',
@@ -854,6 +897,21 @@ async function bootstrapHydraDBIfEmpty() {
 
         // Interactions / Conversations
         {
+          id: 'conv_acme_01',
+          type: 'InteractionEpisode',
+          label: 'Quarterly Executive Review & Multi-Division Expansion Sync',
+          tier: 'hot',
+          properties: {
+            channel: 'Executive Briefing',
+            timestamp: 'Yesterday, 4:30 PM',
+            participants: ['John Miller', 'Alex Morgan'],
+            customerName: 'John Miller',
+            company: 'Acme Corp',
+            summary: 'John Miller affirmed that their division-level pilot exceeded KPIs with a 40% reduction in response latency. Relationship has matured from cautious technical diligence into strong executive sponsorship. John is championing the $380k ARR enterprise agreement across 3 business units, provided we include a dedicated staging sandbox and annual advance billing discount.',
+          },
+          tags: ['Conversation', 'ExecutiveReview', 'ChampionEvolution', 'Expansion'],
+        },
+        {
           id: 'conv_apex_01',
           type: 'InteractionEpisode',
           label: 'Architecture & Legacy Freight Integration Review',
@@ -931,6 +989,19 @@ async function bootstrapHydraDBIfEmpty() {
 
         // Patterns & Requirements
         {
+          id: 'req_acme_sandbox',
+          type: 'PricingConstraint',
+          label: 'Dedicated Staging Sandbox & Enterprise SSO',
+          tier: 'hot',
+          properties: {
+            category: 'Requirement',
+            customer: 'Acme Corp',
+            priority: 'High',
+            details: 'Dedicated staging sandbox environment and Okta SSO integration required for multi-division deployment.',
+          },
+          tags: ['Requirement', 'Infrastructure', 'SSO'],
+        },
+        {
           id: 'req_apex_onboarding',
           type: 'PricingConstraint',
           label: 'Dedicated Onboarding Engineer & Milestone Sign-Off',
@@ -1007,6 +1078,23 @@ async function bootstrapHydraDBIfEmpty() {
 
         // Deals
         {
+          id: 'deal_acme_enterprise',
+          type: 'Deal',
+          label: 'Acme Corp Enterprise Multi-Division Agreement',
+          tier: 'hot',
+          properties: {
+            title: 'Acme Corp Enterprise Multi-Division Agreement',
+            company: 'Acme Corp',
+            consumerName: 'John Miller',
+            value: 380000,
+            stage: 'Negotiation',
+            probability: 90,
+            closeDate: 'End of Month',
+            nextStep: 'Deliver final concession schedule and SLA addendum to John Miller',
+          },
+          tags: ['EnterpriseDeal', 'Negotiation', 'HighConfidence'],
+        },
+        {
           id: 'deal_apex_3yr',
           type: 'Deal',
           label: 'Apex Global Enterprise Agreement',
@@ -1060,6 +1148,7 @@ async function bootstrapHydraDBIfEmpty() {
       ],
       relations: [
         // Contact to Account
+        { id: 'rel_c_acme', sourceId: 'contact_john_miller', targetId: 'acc_acme', relationship: 'PART_OF_ACCOUNT', weight: 1.0 },
         { id: 'rel_c_apex', sourceId: 'contact_sarah_chen', targetId: 'acc_apex', relationship: 'PART_OF_ACCOUNT', weight: 1.0 },
         { id: 'rel_c_vanguard', sourceId: 'contact_elena_rostova', targetId: 'acc_vanguard', relationship: 'PART_OF_ACCOUNT', weight: 1.0 },
         { id: 'rel_c_nexus', sourceId: 'contact_marcus_vance', targetId: 'acc_nexus', relationship: 'PART_OF_ACCOUNT', weight: 1.0 },
@@ -1068,12 +1157,14 @@ async function bootstrapHydraDBIfEmpty() {
         { id: 'rel_c_beacon', sourceId: 'contact_rachel_adams', targetId: 'acc_beacon', relationship: 'PART_OF_ACCOUNT', weight: 1.0 },
 
         // Champions & Decisions
+        { id: 'rel_john_champ', sourceId: 'contact_john_miller', targetId: 'deal_acme_enterprise', relationship: 'CHAMPIONS', weight: 0.99 },
         { id: 'rel_sarah_champ', sourceId: 'contact_sarah_chen', targetId: 'deal_apex_3yr', relationship: 'CHAMPIONS', weight: 0.95 },
         { id: 'rel_elena_champ', sourceId: 'contact_elena_rostova', targetId: 'deal_vanguard_global', relationship: 'CHAMPIONS', weight: 0.98 },
         { id: 'rel_david_budget', sourceId: 'contact_david_kim', targetId: 'acc_summit', relationship: 'BUDGET_OWNER', weight: 0.94 },
         { id: 'rel_marcus_decides', sourceId: 'contact_marcus_vance', targetId: 'deal_nexus_health', relationship: 'DECIDES_PRICING', weight: 0.96 },
 
         // Interactions to Accounts
+        { id: 'rel_i_acme', sourceId: 'conv_acme_01', targetId: 'acc_acme', relationship: 'TRIGGERED_BY', weight: 1.0 },
         { id: 'rel_i_apex', sourceId: 'conv_apex_01', targetId: 'acc_apex', relationship: 'TRIGGERED_BY', weight: 1.0 },
         { id: 'rel_i_vanguard', sourceId: 'conv_vanguard_01', targetId: 'acc_vanguard', relationship: 'TRIGGERED_BY', weight: 1.0 },
         { id: 'rel_i_nexus', sourceId: 'conv_nexus_01', targetId: 'acc_nexus', relationship: 'TRIGGERED_BY', weight: 1.0 },
@@ -1081,11 +1172,13 @@ async function bootstrapHydraDBIfEmpty() {
         { id: 'rel_i_summit', sourceId: 'conv_summit_01', targetId: 'acc_summit', relationship: 'TRIGGERED_BY', weight: 1.0 },
 
         // Deals to Accounts
+        { id: 'rel_d_acme', sourceId: 'deal_acme_enterprise', targetId: 'acc_acme', relationship: 'PART_OF_ACCOUNT', weight: 1.0 },
         { id: 'rel_d_apex', sourceId: 'deal_apex_3yr', targetId: 'acc_apex', relationship: 'PART_OF_ACCOUNT', weight: 1.0 },
         { id: 'rel_d_vanguard', sourceId: 'deal_vanguard_global', targetId: 'acc_vanguard', relationship: 'PART_OF_ACCOUNT', weight: 1.0 },
         { id: 'rel_d_nexus', sourceId: 'deal_nexus_health', targetId: 'acc_nexus', relationship: 'PART_OF_ACCOUNT', weight: 1.0 },
 
         // Constraints & Concession Rules
+        { id: 'rel_d_acme_req', sourceId: 'deal_acme_enterprise', targetId: 'req_acme_sandbox', relationship: 'PRICING_LINKED_TO', weight: 1.0 },
         { id: 'rel_d_apex_req', sourceId: 'deal_apex_3yr', targetId: 'req_apex_onboarding', relationship: 'PRICING_LINKED_TO', weight: 1.0 },
         { id: 'rel_d_van_req', sourceId: 'deal_vanguard_global', targetId: 'req_vanguard_sso', relationship: 'PRICING_LINKED_TO', weight: 1.0 },
         { id: 'rel_rule_apex', sourceId: 'rule_annual_advance', targetId: 'req_apex_onboarding', relationship: 'CONCESSION_TIED_TO', weight: 1.0 },
